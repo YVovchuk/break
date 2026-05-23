@@ -224,7 +224,8 @@
       align-items:end;
       gap:10px;
       flex-wrap:wrap;
-      margin-bottom:12px;
+      margin-top:12px;
+        bottom:auto;
     }
     .right-head p{
       margin:4px 0 0;
@@ -418,41 +419,6 @@
       background:linear-gradient(135deg,var(--primary),var(--primary-2));
       color:#fff;
       box-shadow:0 14px 28px rgba(79,70,229,.20);
-    }
-    .trash-zone{
-      display:none;
-      position:fixed;
-      left:50%;
-      bottom:18px;
-      transform:translateX(-50%);
-      width:min(920px, calc(100vw - 36px));
-      z-index:2500;
-      border:1.5px dashed rgba(220,38,38,.35);
-      background:rgba(255,255,255,.92);
-      color:var(--danger);
-      border-radius:18px;
-      padding:14px 16px;
-      font-weight:800;
-      text-align:center;
-      align-items:center;
-      justify-content:center;
-      min-height:58px;
-      gap:10px;
-      box-shadow:0 18px 50px rgba(15,23,42,.18);
-      backdrop-filter:blur(10px);
-      -webkit-backdrop-filter:blur(10px);
-    }
-    .trash-zone.visible{display:flex}
-    .trash-zone.drop-target{
-      background:rgba(220,38,38,.13);
-      border-color:rgba(220,38,38,.55);
-      transform:translateX(-50%) scale(1.01);
-    }
-    @media (max-width: 760px){
-      .trash-zone{
-        width:calc(100vw - 24px);
-        bottom:12px;
-      }
     }
     .slot{
       min-height:94px;
@@ -686,24 +652,8 @@
             <div class="date-info">Выбрано: <b id="selectedDateLabel">не выбрано</b></div>
           </div>
 
-          <div class="summary">
-            <div class="stat">
-              <strong id="freeCount">0</strong>
-              <span>свободных слотов</span>
-            </div>
-            <div class="stat">
-              <strong id="bookedCount">0</strong>
-              <span>занятых слотов</span>
-            </div>
-            <div class="stat">
-              <strong>56</strong>
-              <span>слотов за день</span>
-            </div>
-          </div>
-
           <div class="actions">
             <button class="button primary" id="bookBtn" type="button">Забронировать</button>
-            <button class="button secondary" id="viewAllBtn" type="button">Все записи</button>
           </div>
 
           <div class="result" id="result">Выберите дату, затем нажмите на свободную ячейку справа.</div>
@@ -722,7 +672,6 @@
               </div>
             </div>
 
-            <div class="trash-zone" id="trashZone">🗑️ Перетащите сюда запись, чтобы удалить</div>
             <div class="board" id="board"></div>
       </section>
 
@@ -1016,8 +965,8 @@
 
     function updateCounts(){
       const dayBookings = bookingsFor(selectedDate).filter(b => bookingTypeOf(b) === selectedType);
-      bookedCountEl.textContent = dayBookings.length;
-      freeCountEl.textContent = times.length - dayBookings.length;
+      if (bookedCountEl) bookedCountEl.textContent = dayBookings.length;
+      if (freeCountEl) freeCountEl.textContent = times.length - dayBookings.length;
     }
 
     function setResult(message, isError = false){
@@ -1261,7 +1210,7 @@
     function showTrash(isVisible){
       if (!trashZone) return;
       trashZone.classList.toggle("visible", isVisible);
-      if (isVisible) trashZone.style.display = "flex";
+      trashZone.style.display = isVisible ? "flex" : "none";
       if (!isVisible) trashZone.classList.remove("drop-target");
     }
 
@@ -1533,7 +1482,7 @@
     prevMonthBtn.addEventListener("click", () => setMonth(-1));
     nextMonthBtn.addEventListener("click", () => setMonth(1));
     bookBtn.addEventListener("click", createBooking);
-    viewAllBtn.addEventListener("click", openAll);
+    if (viewAllBtn) viewAllBtn.addEventListener("click", openAll);
     closeAllModalBtn.addEventListener("click", closeAll);
     allModal.addEventListener("click", e => { if (e.target === allModal) closeAll(); });
 
