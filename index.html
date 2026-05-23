@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>АС Рольф — график перерывов и обедов</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <style>
+    :root{
+      --bg:#f4f7fb;
+      --card:rgba(255,255,255,.84);
+      --border:rgba(17,24,39,.10);
+      --text:#111827;
+      --muted:#64748b;
+      --primary:#4f46e5;
+      --primary-2:#7c3aed;
+      --success:#16a34a;
+      --danger:#dc2626;
+      --warn:#ea580c;
+      --shadow:0 18px 55px rgba(17,24,39,.10);
+      --radius:24px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(79,70,229,.12), transparent 34%),
+        radial-gradient(circle at top right, rgba(124,58,237,.09), transparent 30%),
+        linear-gradient(180deg, #eef2ff 0%, #f8fafc 50%, #eef2f7 100%);
+      padding:18px;
+      overflow-x:hidden;
+    }
+    .wrap{max-width:1580px;margin:0 auto}
+    .top{
+      display:flex;justify-content:space-between;align-items:center;gap:16px;
+      margin-bottom:14px;flex-wrap:wrap;
+    }
+    .brand{display:flex;align-items:center;gap:14px}
+    .logo{
+      width:56px;height:56px;border-radius:18px;
+      background:linear-gradient(135deg,var(--primary),var(--primary-2));
+      color:#fff;display:grid;place-items:center;
+      font-weight:800;letter-spacing:.08em;
+      box-shadow:0 14px 30px rgba(79,70,229,.24);
+      user-select:none;
+    }
+    .brand b{display:block;font-size:16px}
+    .brand span{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+    .pill{
+      padding:10px 14px;border-radius:999px;
+      background:rgba(17,24,39,.05);
+      border:1px solid rgba(17,24,39,.06);
+      color:#1f2937;font-size:11px;font-weight:600;
+      display:inline-flex;align-items:center;gap:8px;
+      white-space:nowrap;
+    }
+    .dot{
+      width:8px;height:8px;border-radius:999px;background:var(--success);display:inline-block;
+      box-shadow:0 0 0 4px rgba(22,163,74,.12);
+      flex:none;
+    }
+    .layout{
+      display:grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap:16px;
+      align-items:start;
+    }
+    .panel{
+      background:var(--card);
+      border:1px solid rgba(255,255,255,.74);
+      backdrop-filter: blur(16px);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+    }
+    .left,.right{padding:18px}
+    h1,h2,h3{margin:0}
+    h1{
+      font-size:clamp(26px,2.9vw,46px);
+      line-height:1.02;
+      letter-spacing:-.05em;
+      margin-bottom:8px;
+    }
+    .subtitle{
+      color:var(--muted);
+      line-height:1.6;
+      margin:0 0 16px;
+      font-size:13px;
+    }
+    .stack{display:grid;gap:14px}
+    .field{display:grid;gap:8px}
+    label{font-size:11px;font-weight:700;color:#1f2937}
+    input,select,textarea{
+      width:100%;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.95);
+      border-radius:14px;
+      padding:13px 14px;
+      font-size:13px;
+      outline:none;
+      transition:.18s ease;
+      color:var(--text);
+      font-family:inherit;
+    }
+    input:focus,select:focus,textarea:focus{
+      border-color:rgba(79,70,229,.45);
+      box-shadow:0 0 0 4px rgba(79,70,229,.10);
+    }
+    .calendar{
+      background:rgba(255,255,255,.92);
+      border:1px solid var(--border);
+      border-radius:18px;
+      padding:8px;
+    }
+    .cal-head{
+      display:flex;justify-content:space-between;align-items:center;gap:10px;
+      margin-bottom:8px;
+    }
+    .cal-head strong{
+      font-size:13px;
+      letter-spacing:-.02em;
+      text-transform:capitalize;
+    }
+    .nav-btn{
+      width:38px;height:38px;border-radius:12px;border:1px solid var(--border);
+      background:#fff;cursor:pointer;font-size:18px;transition:.18s ease;
+    }
+    .nav-btn:hover{transform:translateY(-1px)}
+    .weekday-row,.days-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+    .weekday{
+      font-size:11px;
+      color:var(--muted);
+      text-align:center;
+      padding:2px 0 6px;
+      font-weight:800;
+    }
+    .day{
+      aspect-ratio:1/1;
+      border-radius:12px;
+      border:1px solid transparent;
+      background:#fff;
+      cursor:pointer;
+      font-weight:700;
+      font-size:11px;
+      transition:.18s ease;
+      position:relative;
+    }
+    .day:hover{transform:translateY(-1px);border-color:rgba(79,70,229,.25)}
+    .day.selected{
+      background:linear-gradient(135deg,var(--primary),var(--primary-2));
+      color:#fff;
+      box-shadow:0 12px 22px rgba(79,70,229,.18);
+    }
+    .day.outside{background:transparent;border-color:transparent;color:transparent;cursor:default;pointer-events:none}
+    .day.today::after{
+      content:"";
+      position:absolute;
+      left:50%;
+      bottom:6px;
+      width:5px;height:5px;border-radius:50%;
+      transform:translateX(-50%);
+      background:rgba(79,70,229,.55);
+    }
+    .day.selected.today::after{background:rgba(255,255,255,.95)}
+    .date-info{
+      margin-top:10px;
+      font-size:11px;
+      color:var(--muted);
+      line-height:1.5;
+    }
+    .button{
+      border:none;
+      border-radius:14px;
+      padding:13px 16px;
+      font-size:13px;
+      font-weight:700;
+      cursor:pointer;
+      transition:.18s ease;
+    }
+    .button:hover{transform:translateY(-1px)}
+    .button.primary{
+      background:linear-gradient(135deg,var(--primary),var(--primary-2));
+      color:#fff;
+      box-shadow:0 14px 28px rgba(79,70,229,.20);
+    }
+    .button.secondary{
+      background:rgba(17,24,39,.06);
+      color:#111827;
+    }
+    .button.ghost{
+      background:#fff;
+      border:1px solid var(--border);
+      color:#111827;
+    }
+    .button.danger{
+      background:rgba(220,38,38,.10);
+      color:var(--danger);
+    }
+    .actions{display:flex;gap:10px;flex-wrap:wrap}
+    .actions .button{flex:1}
+    .summary{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap:10px;
+      margin:14px 0 16px;
+    }
+    .stat{
+      background:rgba(255,255,255,.82);
+      border:1px solid rgba(255,255,255,.92);
+      border-radius:18px;
+      padding:14px;
+      min-height:88px;
+    }
+    .stat strong{display:block;font-size:20px;margin-bottom:4px}
+    .stat span{color:var(--muted);font-size:11px;line-height:1.4}
+    .right-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:end;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+    .right-head p{
+      margin:4px 0 0;
+      color:var(--muted);
+      line-height:1.5;
+      font-size:11px;
+    }
+    .chip-row{display:flex;gap:8px;flex-wrap:wrap}
+    .chip{
+      display:inline-flex;align-items:center;gap:8px;
+      padding:9px 12px;
+      border-radius:999px;
+      background:rgba(17,24,39,.05);
+      border:1px solid rgba(17,24,39,.06);
+      color:#1f2937;
+      font-size:11px;
+      font-weight:700;
+    }
+    .board{
+      display:grid;
+      gap:10px;
+    }
+    .band{
+      background:rgba(255,255,255,.68);
+      border:1px solid rgba(17,24,39,.06);
+      border-radius:18px;
+      padding:8px;
+    }
+    .band-title{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      margin-bottom:8px;
+      flex-wrap:wrap;
+    }
+    .band-title strong{
+      font-size:13px;
+      letter-spacing:-.02em;
+    }
+    .band-title span{
+      color:var(--muted);
+      font-size:11px;
+    }
+    .slot-grid{
+      display:grid;
+      grid-template-columns: 88px repeat(4, minmax(0, 1fr));
+      gap:8px;
+      align-items:stretch;
+    }
+    .slot-label{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      border-radius:16px;
+      border:1px solid rgba(17,24,39,.06);
+      background:rgba(17,24,39,.04);
+      color:#334155;
+      font-size:11px;
+      font-weight:800;
+      min-height:60px;
+      padding:8px;
+      line-height:1.2;
+    }
+    .slot{
+      border:1px solid var(--border);
+      background:#fff;
+      border-radius:16px;
+      min-height:60px;
+      padding:8px 8px 7px;
+      cursor:pointer;
+      transition:.18s ease;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      text-align:left;
+      overflow:hidden;
+    }
+    .slot:hover{transform:translateY(-1px)}
+    .slot[aria-pressed="true"]{
+      border-color:rgba(79,70,229,.58);
+      background:linear-gradient(180deg, rgba(79,70,229,.10), rgba(124,58,237,.06));
+      box-shadow:0 10px 22px rgba(79,70,229,.10);
+    }
+    .slot strong{
+      font-size:11px;
+      line-height:1.1;
+      letter-spacing:-.02em;
+    }
+    .slot small{
+      font-size:11px;
+      color:var(--muted);
+      line-height:1.25;
+      display:block;
+      word-break:break-word;
+    }
+    .slot.free small{color:var(--success)}
+    .slot.booked{
+      background:rgba(220,38,38,.05);
+      border-color:rgba(220,38,38,.20);
+      cursor:not-allowed;
+    }
+    .slot.booked strong{color:var(--danger)}
+    .slot.booked small{color:#991b1b}
+    .slot.booked:hover{transform:none}
+    .legend{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .legend .pill{padding:8px 12px;font-size:12px}
+    .result{
+      border-radius:18px;
+      padding:15px;
+      border:1px solid rgba(22,163,74,.18);
+      background:rgba(22,163,74,.08);
+      color:#14532d;
+      line-height:1.55;
+      min-height:78px;
+      font-size:13px;
+    }
+    .small-note{
+      color:var(--muted);
+      font-size:11px;
+      line-height:1.5;
+    }
+    .modal{
+      position:fixed;inset:0;background:rgba(15,23,42,.45);
+      backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+      display:none;align-items:center;justify-content:center;z-index:1000;padding:18px;
+    }
+    .modal.open{display:flex}
+    .modal-card{
+      width:min(1000px,100%);
+      max-height:min(88vh,980px);
+      overflow:auto;
+      background:rgba(255,255,255,.96);
+      border-radius:28px;
+      box-shadow:0 30px 80px rgba(15,23,42,.25);
+      border:1px solid rgba(255,255,255,.72);
+      padding:20px;
+    }
+    .modal-head{
+      display:flex;justify-content:space-between;gap:10px;align-items:center;
+      margin-bottom:14px;flex-wrap:wrap;
+    }
+    .modal-head p{margin:4px 0 0;color:var(--muted)}
+    .table{
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0 10px;
+    }
+    .table th{
+      text-align:left;
+      font-size:11px;
+      color:var(--muted);
+      font-weight:700;
+      padding:0 12px 4px;
+    }
+    .table td{
+      background:#fff;
+      border-top:1px solid rgba(17,24,39,.06);
+      border-bottom:1px solid rgba(17,24,39,.06);
+      padding:14px 12px;
+      font-size:13px;
+      vertical-align:top;
+    }
+    .table tr td:first-child{border-left:1px solid rgba(17,24,39,.06);border-top-left-radius:16px;border-bottom-left-radius:16px}
+    .table tr td:last-child{border-right:1px solid rgba(17,24,39,.06);border-top-right-radius:16px;border-bottom-right-radius:16px}
+    .hidden{display:none !important}
+    @media (max-width: 1200px){
+      .layout{grid-template-columns:1fr}
+      .slot-grid{grid-template-columns: 96px repeat(12, minmax(52px, 1fr));}
+    }
+    @media (max-width: 980px){
+      .summary{grid-template-columns:1fr}
+      .slot-grid{grid-template-columns: 86px repeat(12, minmax(48px, 1fr));}
+      .slot,.slot-label{min-height:68px}
+    }
+    @media (max-width: 760px){
+      body{padding:12px}
+      .slot-grid{
+        grid-template-columns: 74px repeat(12, minmax(42px, 1fr));
+        gap:6px;
+      }
+      .slot,.slot-label{min-height:62px;border-radius:14px}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <div class="logo">ROLF</div>
+        <div>
+          <b>АС Рольф</b>
+          <span>График бронирования перерывов и обедов</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <div class="pill" id="dbState"><span class="dot"></span><span>Подключено</span></div>
+        <div class="pill"><span class="dot"></span><span>Слоты по 15 минут</span></div>
+      </div>
+    </div>
+
+    <div class="layout">
+      <section class="panel left">
+        <h1>Перерывы и обеды</h1>
+        <p class="subtitle">Календарь сделан компактным слева, а справа — широкая сетка слотов. В каждой ячейке видно, кем слот занят.</p>
+
+        <div class="stack">
+          <div class="field">
+            <label for="name">Кто бронирует</label>
+            <input id="name" type="text" placeholder="Например, Олеся" autocomplete="name" />
+          </div>
+
+          <div class="field">
+            <label>Дата</label>
+            <div class="calendar">
+              <div class="cal-head">
+                <button class="nav-btn" id="prevMonthBtn" type="button">‹</button>
+                <strong id="calendarTitle"></strong>
+                <button class="nav-btn" id="nextMonthBtn" type="button">›</button>
+              </div>
+              <div class="weekday-row">
+                <div class="weekday">Пн</div><div class="weekday">Вт</div><div class="weekday">Ср</div>
+                <div class="weekday">Чт</div><div class="weekday">Пт</div><div class="weekday">Сб</div><div class="weekday">Вс</div>
+              </div>
+              <div class="days-grid" id="calendarGrid"></div>
+            </div>
+            <div class="date-info">Выбрано: <b id="selectedDateLabel">не выбрано</b></div>
+          </div>
+
+          <div class="summary">
+            <div class="stat">
+              <strong id="freeCount">0</strong>
+              <span>свободных слотов</span>
+            </div>
+            <div class="stat">
+              <strong id="bookedCount">0</strong>
+              <span>занятых слотов</span>
+            </div>
+            <div class="stat">
+              <strong>36</strong>
+              <span>слотов за день</span>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="button primary" id="bookBtn" type="button">Забронировать</button>
+            <button class="button secondary" id="viewAllBtn" type="button">Все записи</button>
+          </div>
+
+          <div class="result" id="result">Выберите дату, затем нажмите на свободную ячейку справа.</div>
+          <div class="small-note">Нажатие на свободную ячейку выбирает слот. Занятые ячейки показывают имя уже записанного человека.</div>
+        </div>
+      </section>
+
+      <section class="panel right">
+        <div class="right-head">
+          <div>
+            <h2>Сетка слотов</h2>
+            <p>Строки идут по часам. Внутри каждого часа — слоты по 15 минут.</p>
+          </div>
+          <div class="legend">
+            <div class="pill"><span class="dot"></span><span>Свободно</span></div>
+            <div class="pill" style="background:rgba(220,38,38,.08)"><span class="dot" style="background:var(--danger);box-shadow:0 0 0 4px rgba(220,38,38,.12)"></span><span>Занято</span></div>
+          </div>
+        </div>
+
+        <div class="board" id="board"></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="modal" id="allModal" aria-hidden="true">
+    <div class="modal-card">
+      <div class="modal-head">
+        <div>
+          <h2>Все бронирования</h2>
+          <p>Список всех занятых слотов</p>
+        </div>
+        <button class="button secondary" id="closeAllModalBtn" type="button">Закрыть</button>
+      </div>
+      <div id="allBookingsBody"></div>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAoTaDDCB-TUZzSlRuUKvnQ8QcJPQdERFE",
+      authDomain: "sd-premium-b3b78.firebaseapp.com",
+      projectId: "sd-premium-b3b78"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const collectionName = "break_bookings";
+    const startHour = 8;
+    const endHour = 22;
+    const stepMinutes = 15;
+    const slotsPerRow = 4; // 1 hour per line
+
+    const dbState = document.getElementById("dbState");
+    const nameEl = document.getElementById("name");
+    const resultEl = document.getElementById("result");
+    const boardEl = document.getElementById("board");
+    const calendarGrid = document.getElementById("calendarGrid");
+    const calendarTitle = document.getElementById("calendarTitle");
+    const selectedDateLabel = document.getElementById("selectedDateLabel");
+    const freeCountEl = document.getElementById("freeCount");
+    const bookedCountEl = document.getElementById("bookedCount");
+    const prevMonthBtn = document.getElementById("prevMonthBtn");
+    const nextMonthBtn = document.getElementById("nextMonthBtn");
+    const bookBtn = document.getElementById("bookBtn");
+    const viewAllBtn = document.getElementById("viewAllBtn");
+    const allModal = document.getElementById("allModal");
+    const allBookingsBody = document.getElementById("allBookingsBody");
+    const closeAllModalBtn = document.getElementById("closeAllModalBtn");
+
+    let selectedDate = todayISO();
+    let selectedTime = null;
+    let currentMonth = new Date();
+    let bookingsCache = [];
+    let unsub = null;
+
+    function todayISO(){
+      const d = new Date();
+      const tz = new Date(d.getTime() - d.getTimezoneOffset()*60000);
+      return tz.toISOString().slice(0,10);
+    }
+
+    function toISODate(date){
+      return new Date(date.getTime() - date.getTimezoneOffset()*60000).toISOString().slice(0,10);
+    }
+
+    function slotId(date, time){
+      return `${date}__${time}`.replace(/\s+/g, "_");
+    }
+
+    function formatMonth(date){
+      return new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(date);
+    }
+
+    function mondayIndex(jsDay){ return jsDay === 0 ? 6 : jsDay - 1; }
+
+    function escapeHtml(str){
+      return String(str)
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#39;");
+    }
+
+    function setStatus(ok){
+      dbState.innerHTML = ok
+        ? '<span class="dot"></span><span>Подключено</span>'
+        : '<span class="dot" style="background:var(--danger);box-shadow:0 0 0 4px rgba(220,38,38,.12)"></span><span>Ошибка базы</span>';
+    }
+
+    function generateTimes(){
+      const result = [];
+      const start = startHour * 60;
+      const end = endHour * 60;
+      for (let m = start; m < end; m += stepMinutes){
+        const hh = String(Math.floor(m / 60)).padStart(2, "0");
+        const mm = String(m % 60).padStart(2, "0");
+        result.push(`${hh}:${mm}`);
+      }
+      return result;
+    }
+
+    const times = generateTimes();
+
+    function chunk(arr, size){
+      const out = [];
+      for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+      return out;
+    }
+
+    function bookingsFor(date){
+      return bookingsCache.filter(b => b.date === date);
+    }
+
+    function renderCalendar(){
+      const year = currentMonth.getFullYear();
+      const month = currentMonth.getMonth();
+      calendarTitle.textContent = formatMonth(currentMonth);
+
+      const first = new Date(year, month, 1);
+      const firstDay = mondayIndex(first.getDay());
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const today = todayISO();
+      const cells = [];
+
+      for (let i = 0; i < firstDay; i++) cells.push(null);
+      for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+      while (cells.length % 7 !== 0) cells.push(null);
+
+      calendarGrid.innerHTML = "";
+      cells.forEach(d => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        if (!d){
+          btn.className = "day outside";
+          btn.disabled = true;
+          btn.textContent = "0";
+        } else {
+          const iso = toISODate(d);
+          btn.className = "day";
+          btn.textContent = d.getDate();
+          if (iso === today) btn.classList.add("today");
+          if (iso === selectedDate) btn.classList.add("selected");
+          btn.addEventListener("click", () => {
+            selectedDate = iso;
+            selectedTime = null;
+            selectedDateLabel.textContent = selectedDate;
+            renderCalendar();
+            renderBoard();
+          });
+        }
+        calendarGrid.appendChild(btn);
+      });
+
+      selectedDateLabel.textContent = selectedDate || "не выбрано";
+    }
+
+    function renderBoard(){
+      const dayBookings = bookingsFor(selectedDate);
+      const dayMap = new Map(dayBookings.map(b => [b.time, b]));
+
+      boardEl.innerHTML = "";
+      const rows = chunk(times, slotsPerRow);
+
+      rows.forEach((rowTimes, rowIndex) => {
+        const hour = startHour + rowIndex;
+        const band = document.createElement("div");
+        band.className = "band";
+        band.innerHTML = `
+          <div class="band-title">
+            <div>
+              <strong>${String(hour).padStart(2, "0")}:00</strong>
+              <span> — ${String(hour + 1).padStart(2, "0")}:00</span>
+            </div>
+            <span>${selectedDate}</span>
+          </div>
+        `;
+
+        const grid = document.createElement("div");
+        grid.className = "slot-grid";
+
+        const label = document.createElement("div");
+        label.className = "slot-label";
+        label.innerHTML = `${String(hour).padStart(2, "0")}:00`;
+        grid.appendChild(label);
+
+        rowTimes.forEach(time => {
+          const booked = dayMap.get(time);
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = `slot ${booked ? "booked" : "free"}`;
+          btn.disabled = !!booked;
+          btn.setAttribute("aria-pressed", selectedTime === time ? "true" : "false");
+          btn.innerHTML = booked
+            ? `<strong>${time}</strong><small>занято · ${escapeHtml(booked.bookedBy || "без имени")}</small>`
+            : `<strong>${time}</strong><small>свободно</small>`;
+
+          btn.addEventListener("click", () => {
+            if (booked) return;
+            selectedTime = time;
+            [...boardEl.querySelectorAll(".slot")].forEach(el => el.setAttribute("aria-pressed", "false"));
+            btn.setAttribute("aria-pressed", "true");
+            resultEl.innerHTML = `Выбрано: <b>${selectedDate}</b>, <b>${time}</b>. Нажмите «Забронировать».`;
+          });
+
+          grid.appendChild(btn);
+        });
+
+        band.appendChild(grid);
+        boardEl.appendChild(band);
+      });
+
+      updateCounts();
+    }
+
+    function updateCounts(){
+      const dayBookings = bookingsFor(selectedDate);
+      bookedCountEl.textContent = dayBookings.length;
+      freeCountEl.textContent = times.length - dayBookings.length;
+    }
+
+    function renderAllBookings(){
+      const rows = [...bookingsCache].sort((a,b) => `${a.date}_${a.time}`.localeCompare(`${b.date}_${b.time}`));
+      if (!rows.length){
+        allBookingsBody.innerHTML = '<div style="padding:16px;border-radius:18px;background:rgba(17,24,39,.04);color:var(--muted)">Пока нет записей.</div>';
+        return;
+      }
+      allBookingsBody.innerHTML = `
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Имя</th>
+              <th>Дата</th>
+              <th>Время</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td>${escapeHtml(r.bookedBy || "")}</td>
+                <td>${escapeHtml(r.date || "")}</td>
+                <td>${escapeHtml(r.time || "")}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function openAll(){
+      renderAllBookings();
+      allModal.classList.add("open");
+      allModal.setAttribute("aria-hidden", "false");
+    }
+
+    function closeAll(){
+      allModal.classList.remove("open");
+      allModal.setAttribute("aria-hidden", "true");
+    }
+
+    async function bookSlot(){
+      const name = nameEl.value.trim();
+      if (!name){
+        resultEl.textContent = "Введите имя.";
+        nameEl.focus();
+        return;
+      }
+      if (!selectedDate){
+        resultEl.textContent = "Выберите дату.";
+        return;
+      }
+      if (!selectedTime){
+        resultEl.textContent = "Сначала выберите свободную ячейку справа.";
+        return;
+      }
+
+      const id = slotId(selectedDate, selectedTime);
+      const ref = db.collection(collectionName).doc(id);
+
+      try{
+        await db.runTransaction(async tx => {
+          const snap = await tx.get(ref);
+          if (snap.exists && snap.data().bookedBy) {
+            throw new Error("Этот слот уже занят.");
+          }
+          tx.set(ref, {
+            date: selectedDate,
+            time: selectedTime,
+            bookedBy: name,
+            bookedAt: new Date().toISOString()
+          }, { merge: true });
+        });
+
+        resultEl.innerHTML = `<b>Запись подтверждена.</b><br>${escapeHtml(name)} занял(а) слот <b>${escapeHtml(selectedTime)}</b> на <b>${escapeHtml(selectedDate)}</b>.`;
+        selectedTime = null;
+        subscribe();
+      } catch (err) {
+        resultEl.textContent = err?.message || "Не удалось сохранить запись.";
+      }
+    }
+
+    function setMonth(delta){
+      currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + delta, 1);
+      renderCalendar();
+    }
+
+    function subscribe(){
+      if (unsub) unsub();
+      unsub = db.collection(collectionName).onSnapshot(snap => {
+        const list = [];
+        snap.forEach(doc => {
+          const d = doc.data();
+          if (!d || !d.bookedBy) return;
+          list.push({ id: doc.id, ...d });
+        });
+        bookingsCache = list;
+        renderBoard();
+        if (allModal.classList.contains("open")) renderAllBookings();
+        setStatus(true);
+      }, err => {
+        console.error(err);
+        setStatus(false);
+      });
+    }
+
+    prevMonthBtn.addEventListener("click", () => setMonth(-1));
+    nextMonthBtn.addEventListener("click", () => setMonth(1));
+    bookBtn.addEventListener("click", bookSlot);
+    viewAllBtn.addEventListener("click", openAll);
+    closeAllModalBtn.addEventListener("click", closeAll);
+    allModal.addEventListener("click", e => { if (e.target === allModal) closeAll(); });
+
+    async function init(){
+      selectedDate = todayISO();
+      currentMonth = new Date();
+      renderCalendar();
+      selectedDateLabel.textContent = selectedDate;
+      subscribe();
+    }
+
+    init();
+  </script>
+</body>
+</html>
