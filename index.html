@@ -79,6 +79,14 @@
       box-shadow:var(--shadow);
     }
     .left,.right{padding:18px}
+
+    .left{
+      position:sticky;
+      top:18px;
+      align-self:start;
+      max-height:calc(100vh - 36px);
+      overflow:auto;
+    }
     h1,h2,h3{margin:0}
     h1{
       font-size:clamp(26px,2.9vw,46px);
