@@ -396,6 +396,127 @@
     .table tr td:first-child{border-left:1px solid rgba(17,24,39,.06);border-top-left-radius:16px;border-bottom-left-radius:16px}
     .table tr td:last-child{border-right:1px solid rgba(17,24,39,.06);border-top-right-radius:16px;border-bottom-right-radius:16px}
     .hidden{display:none !important}
+    .type-toggle{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .type-btn{
+      flex:1;
+      min-width:120px;
+      border:none;
+      border-radius:14px;
+      padding:13px 16px;
+      font-size:13px;
+      font-weight:800;
+      cursor:pointer;
+      transition:.18s ease;
+      background:rgba(17,24,39,.06);
+      color:#111827;
+    }
+    .type-btn.active{
+      background:linear-gradient(135deg,var(--primary),var(--primary-2));
+      color:#fff;
+      box-shadow:0 14px 28px rgba(79,70,229,.20);
+    }
+    .trash-zone{
+      display:none;
+      margin-bottom:12px;
+      border:1.5px dashed rgba(220,38,38,.35);
+      background:rgba(220,38,38,.06);
+      color:var(--danger);
+      border-radius:18px;
+      padding:14px 16px;
+      font-weight:800;
+      text-align:center;
+      align-items:center;
+      justify-content:center;
+      min-height:58px;
+      gap:10px;
+    }
+    .trash-zone.visible{display:flex}
+    .trash-zone.drop-target{
+      background:rgba(220,38,38,.13);
+      border-color:rgba(220,38,38,.55);
+      transform:scale(1.01);
+    }
+    .slot{
+      min-height:94px;
+    }
+    .slot.selected-slot{
+      border-color:rgba(79,70,229,.58);
+      box-shadow:0 10px 22px rgba(79,70,229,.10);
+    }
+    .slot-types{
+      display:grid;
+      gap:6px;
+      margin-top:8px;
+    }
+    .type-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      border-radius:12px;
+      padding:8px 10px;
+      border:1px solid transparent;
+      transition:.18s ease;
+      user-select:none;
+    }
+    .type-row.free{
+      background:rgba(17,24,39,.04);
+      color:#475569;
+      cursor:pointer;
+    }
+    .type-row.booked.break{
+      background:rgba(79,70,229,.10);
+      border-color:rgba(79,70,229,.16);
+      color:#312e81;
+      cursor:grab;
+    }
+    .type-row.booked.lunch{
+      background:rgba(234,88,12,.10);
+      border-color:rgba(234,88,12,.16);
+      color:#9a3412;
+      cursor:grab;
+    }
+    .type-row strong{
+      font-size:11px;
+      line-height:1.1;
+    }
+    .type-row small{
+      font-size:10px;
+      line-height:1.2;
+    }
+    .drag-handle{
+      border:none;
+      background:transparent;
+      color:inherit;
+      font-size:13px;
+      font-weight:900;
+      cursor:grab;
+      padding:0;
+      line-height:1;
+      flex:none;
+    }
+    .slot.booked{
+      cursor:default;
+    }
+    .slot.booked:hover{transform:none}
+    .slot.booked .slot-head small{
+      color:var(--muted);
+      font-size:10px;
+      font-weight:700;
+    }
+    .slot.booked.break{
+      background:linear-gradient(180deg, rgba(79,70,229,.07), rgba(79,70,229,.03));
+      border-color:rgba(79,70,229,.14);
+    }
+    .slot.booked.lunch{
+      background:linear-gradient(180deg, rgba(234,88,12,.07), rgba(234,88,12,.03));
+      border-color:rgba(234,88,12,.14);
+    }
+
     @media (max-width: 1200px){
       .layout{grid-template-columns:1fr}
       .slot-grid{grid-template-columns: 96px repeat(12, minmax(52px, 1fr));}
@@ -511,6 +632,14 @@
           </div>
 
           <div class="field">
+            <label>Тип</label>
+            <div class="type-toggle" id="typeToggle">
+              <button class="type-btn active" type="button" data-booking-type="lunch">Обед</button>
+              <button class="type-btn" type="button" data-booking-type="break">Перерыв</button>
+            </div>
+          </div>
+
+          <div class="field">
             <label>Дата</label>
             <div class="calendar">
               <div class="cal-head">
@@ -551,21 +680,22 @@
           <div class="small-note">Нажатие на свободную ячейку выбирает слот. Занятые ячейки показывают имя уже записанного сотрудника.</div>
         </div>
       </section>
-
       <section class="panel right">
         <div class="right-head">
-          <div>
-            <h2>Бронирования</h2>
-            <div class="small-note">Для переноса записи перетащите ячейку на свободный слот</div>
-          </div>
-          <div class="legend">
-            <div class="pill"><span class="dot"></span><span>Свободно</span></div>
-            <div class="pill" style="background:rgba(220,38,38,.08)"><span class="dot" style="background:var(--danger);box-shadow:0 0 0 4px rgba(220,38,38,.12)"></span><span>Занято</span></div>
-          </div>
-        </div>
+              <div>
+                <h2>Бронирования</h2>
+                <div class="small-note">Для переноса записи перетащите ячейку на свободный слот</div>
+              </div>
+              <div class="legend">
+                <div class="pill"><span class="dot"></span><span>Свободно</span></div>
+                <div class="pill" style="background:rgba(220,38,38,.08)"><span class="dot" style="background:var(--danger);box-shadow:0 0 0 4px rgba(220,38,38,.12)"></span><span>Занято</span></div>
+              </div>
+            </div>
 
-        <div class="board" id="board"></div>
+            <div class="trash-zone" id="trashZone">🗑️ Перетащите сюда запись, чтобы удалить</div>
+            <div class="board" id="board"></div>
       </section>
+
     </div>
   </div>
 
@@ -596,6 +726,7 @@
         <div class="edit-help">Карандаш открывает редактирование. Перетаскивание слота переносит бронь в другую ячейку без открытия формы.</div>
         <div class="actions">
           <button class="button primary" type="submit">Сохранить</button>
+          <button class="button danger" id="deleteEditBtn" type="button">Удалить</button>
           <button class="button ghost" id="cancelEditBtn" type="button">Отмена</button>
         </div>
       </form>
@@ -615,7 +746,9 @@
     </div>
   </div>
 
+  
   <script>
+
     const firebaseConfig = {
       apiKey: "AIzaSyAoTaDDCB-TUZzSlRuUKvnQ8QcJPQdERFE",
       authDomain: "sd-premium-b3b78.firebaseapp.com",
@@ -630,6 +763,11 @@
     const endHour = 22;
     const stepMinutes = 15;
     const slotsPerRow = 4; // 1 hour per line
+
+    const bookingTypes = {
+      lunch: { label: "Обед", key: "lunch" },
+      break: { label: "Перерыв", key: "break" }
+    };
 
     const dbState = document.getElementById("dbState");
     const nameEl = document.getElementById("name");
@@ -656,9 +794,15 @@
     const editTimeEl = document.getElementById("editTime");
     const closeEditModalBtn = document.getElementById("closeEditModalBtn");
     const cancelEditBtn = document.getElementById("cancelEditBtn");
+    const deleteEditBtn = document.getElementById("deleteEditBtn");
+
+    const typeToggle = document.getElementById("typeToggle");
+    const typeButtons = [...document.querySelectorAll("[data-booking-type]")];
+    const trashZone = document.getElementById("trashZone");
 
     let selectedDate = todayISO();
     let selectedTime = null;
+    let selectedType = "break";
     let currentMonth = new Date();
     let bookingsCache = [];
     let unsub = null;
@@ -675,8 +819,8 @@
       return new Date(date.getTime() - date.getTimezoneOffset()*60000).toISOString().slice(0,10);
     }
 
-    function slotId(date, time){
-      return `${date}__${time}`.replace(/\s+/g, "_");
+    function slotId(date, time, type){
+      return `${date}__${time}__${type}`.replace(/\s+/g, "_");
     }
 
     function formatMonth(date){
@@ -720,12 +864,47 @@
       return out;
     }
 
+    function bookingTypeOf(booking){
+      return booking?.type === "lunch" ? "lunch" : "break";
+    }
+
+    function setSelectedType(type){
+      selectedType = bookingTypes[type] ? type : "break";
+      typeButtons.forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.bookingType === selectedType);
+      });
+      selectedTime = null;
+      renderBoard();
+    }
+
     function bookingsFor(date){
       return bookingsCache.filter(b => b.date === date);
     }
 
     function bookingById(id){
       return bookingsCache.find(b => b.id === id);
+    }
+
+    function bookingsByTime(date){
+      const map = new Map();
+      bookingsFor(date).forEach(b => {
+        const time = b.time;
+        if (!map.has(time)) map.set(time, {});
+        map.get(time)[bookingTypeOf(b)] = b;
+      });
+      return map;
+    }
+
+    function updateCounts(){
+      const dayBookings = bookingsFor(selectedDate).filter(b => bookingTypeOf(b) === selectedType);
+      bookedCountEl.textContent = dayBookings.length;
+      freeCountEl.textContent = times.length - dayBookings.length;
+    }
+
+    function setResult(message, isError = false){
+      resultEl.innerHTML = isError
+        ? `<span style="color:var(--danger);font-weight:700">${escapeHtml(message)}</span>`
+        : message;
     }
 
     function renderCalendar(){
@@ -771,20 +950,12 @@
       selectedDateLabel.textContent = selectedDate || "не выбрано";
     }
 
-    function updateCounts(){
-      const dayBookings = bookingsFor(selectedDate);
-      bookedCountEl.textContent = dayBookings.length;
-      freeCountEl.textContent = times.length - dayBookings.length;
-    }
-
-    function setResult(message, isError = false){
-      resultEl.innerHTML = isError
-        ? `<span style="color:var(--danger);font-weight:700">${escapeHtml(message)}</span>`
-        : message;
-    }
-
-    function renderEditTimeOptions(date, currentId, currentTime){
-      const occupied = new Set(bookingsFor(date).filter(b => b.id !== currentId).map(b => b.time));
+    function renderEditTimeOptions(date, currentId, currentTime, type){
+      const occupied = new Set(
+        bookingsFor(date)
+          .filter(b => b.id !== currentId && bookingTypeOf(b) === type)
+          .map(b => b.time)
+      );
       editTimeEl.innerHTML = "";
       times.forEach(time => {
         const opt = document.createElement("option");
@@ -794,7 +965,6 @@
         if (time === currentTime) opt.selected = true;
         editTimeEl.appendChild(opt);
       });
-
       if (!editTimeEl.value && currentTime) editTimeEl.value = currentTime;
     }
 
@@ -803,7 +973,7 @@
       editBookingId.value = booking.id;
       editNameEl.value = booking.bookedBy || "";
       editDateEl.value = booking.date || selectedDate;
-      renderEditTimeOptions(editDateEl.value, booking.id, booking.time);
+      renderEditTimeOptions(editDateEl.value, booking.id, booking.time, bookingTypeOf(booking));
       editTimeEl.value = booking.time;
       editModal.classList.add("open");
       editModal.setAttribute("aria-hidden", "false");
@@ -818,8 +988,8 @@
       editTimeEl.innerHTML = "";
     }
 
-    async function saveRecord({ sourceId = null, name, date, time }){
-      const newId = slotId(date, time);
+    async function saveRecord({ sourceId = null, name, date, time, type = selectedType }){
+      const newId = slotId(date, time, type);
       const newRef = db.collection(collectionName).doc(newId);
 
       return db.runTransaction(async tx => {
@@ -833,7 +1003,7 @@
           if (newId !== sourceId){
             const newSnap = await tx.get(newRef);
             if (newSnap.exists){
-              throw new Error("Это время уже занято.");
+              throw new Error("Это время уже занято для выбранного типа.");
             }
           }
 
@@ -842,6 +1012,7 @@
             ...base,
             date,
             time,
+            type,
             bookedBy: name,
             updatedAt: new Date().toISOString()
           };
@@ -853,12 +1024,13 @@
 
         const snap = await tx.get(newRef);
         if (snap.exists){
-          throw new Error("Этот слот уже занят.");
+          throw new Error("Этот слот уже занят для выбранного типа.");
         }
 
         tx.set(newRef, {
           date,
           time,
+          type,
           bookedBy: name,
           bookedAt: new Date().toISOString()
         }, { merge: true });
@@ -884,9 +1056,10 @@
       }
 
       try{
-        await saveRecord({ name, date: selectedDate, time: selectedTime });
-        setResult(`<b>Запись подтверждена.</b><br>${escapeHtml(name)} занял(а) слот <b>${escapeHtml(selectedTime)}</b> на <b>${escapeHtml(selectedDate)}</b>.`);
+        await saveRecord({ name, date: selectedDate, time: selectedTime, type: selectedType });
+        setResult(`<b>Запись подтверждена.</b><br>${escapeHtml(name)} занял(а) тип <b>${escapeHtml(bookingTypes[selectedType].label)}</b> в слоте <b>${escapeHtml(selectedTime)}</b> на <b>${escapeHtml(selectedDate)}</b>.`);
         selectedTime = null;
+        renderBoard();
       } catch (err){
         setResult(err?.message || "Не удалось сохранить запись.", true);
       }
@@ -899,6 +1072,7 @@
       const name = editNameEl.value.trim();
       const date = editDateEl.value;
       const time = editTimeEl.value;
+      const type = bookingTypeOf(editingBooking);
 
       if (!name){
         setResult("Введите имя.", true);
@@ -921,7 +1095,8 @@
           sourceId: editingBooking.id,
           name,
           date,
-          time
+          time,
+          type
         });
 
         closeEditModal();
@@ -936,19 +1111,50 @@
       }
     }
 
+    async function deleteBookingById(bookingId){
+      const booking = bookingById(bookingId);
+      if (!booking) return;
+
+      await db.collection(collectionName).doc(booking.id).delete();
+      if (editingBooking && editingBooking.id === booking.id){
+        closeEditModal();
+      }
+      if (selectedTime === booking.time && selectedDate === booking.date && bookingTypeOf(booking) === selectedType){
+        selectedTime = null;
+      }
+      setResult(`<b>Запись удалена.</b><br>${escapeHtml(booking.bookedBy || "Запись")} была удалена из <b>${escapeHtml(booking.date)}</b> в <b>${escapeHtml(booking.time)}</b>.`);
+    }
+
+    async function deleteEditingBooking(){
+      if (!editingBooking) return;
+      try{
+        await deleteBookingById(editingBooking.id);
+      } catch (err){
+        setResult(err?.message || "Не удалось удалить бронь.", true);
+      }
+    }
+
     function setMonth(delta){
       currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + delta, 1);
       renderCalendar();
     }
 
-    function startDrag(booking, slotEl){
-      dragBookingId = booking.id;
-      slotEl.classList.add("dragging");
+    function showTrash(isVisible){
+      if (!trashZone) return;
+      trashZone.classList.toggle("visible", isVisible);
+      if (!isVisible) trashZone.classList.remove("drop-target");
     }
 
-    function endDrag(slotEl){
+    function startDrag(booking, rowEl){
+      dragBookingId = booking.id;
+      rowEl.classList.add("dragging");
+      showTrash(true);
+    }
+
+    function endDrag(rowEl){
       dragBookingId = null;
-      slotEl.classList.remove("dragging");
+      rowEl.classList.remove("dragging");
+      showTrash(false);
       boardEl.querySelectorAll(".drop-target").forEach(el => el.classList.remove("drop-target"));
     }
 
@@ -962,7 +1168,8 @@
           sourceId: booking.id,
           name: booking.bookedBy || "",
           date: targetDate,
-          time: targetTime
+          time: targetTime,
+          type: bookingTypeOf(booking)
         });
 
         selectedDate = targetDate;
@@ -976,10 +1183,24 @@
       }
     }
 
-    function renderBoard(){
-      const dayBookings = bookingsFor(selectedDate);
-      const dayMap = new Map(dayBookings.map(b => [b.time, b]));
+    function typeRowHtml(type, booking){
+      const booked = !!booking;
+      return `
+        <div class="type-row ${booked ? "booked" : "free"} ${type}" ${booked ? `data-booking-id="${escapeHtml(booking.id)}" draggable="true"` : ""} data-type="${type}">
+          <div>
+            <strong>${bookingTypes[type].label}</strong>
+            <small>${booked ? escapeHtml(booking.bookedBy || "без имени") : "Свободно"}</small>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex:none">
+            <small>${booked ? "Занято" : "Свободно"}</small>
+            ${booked ? '<button class="drag-handle" type="button" title="Перетащить">⠿</button><button class="icon-btn" type="button" title="Редактировать" aria-label="Редактировать">✎</button>' : ""}
+          </div>
+        </div>
+      `;
+    }
 
+    function renderBoard(){
+      const dayBookings = bookingsByTime(selectedDate);
       boardEl.innerHTML = "";
       const rows = chunk(times, slotsPerRow);
 
@@ -1006,81 +1227,102 @@
         grid.appendChild(label);
 
         rowTimes.forEach(time => {
-          const booked = dayMap.get(time);
+          const lunch = dayBookings.get(time)?.lunch || null;
+          const brk = dayBookings.get(time)?.break || null;
 
-          if (booked){
-            const slot = document.createElement("div");
-            slot.className = "slot booked";
-            slot.setAttribute("role", "button");
-            slot.setAttribute("tabindex", "0");
-            slot.dataset.bookingId = booked.id;
-            slot.draggable = true;
-            slot.innerHTML = `
-              <div class="slot-head">
-                <div class="slot-time">
-                  <strong>${time}</strong>
-                </div>
-                <button class="icon-btn" type="button" title="Редактировать" aria-label="Редактировать">✎</button>
+          const slot = document.createElement("div");
+          slot.className = "slot";
+          if (selectedTime === time) slot.classList.add("selected-slot");
+
+          slot.innerHTML = `
+            <div class="slot-head">
+              <div class="slot-time">
+                <strong>${time}</strong>
               </div>
-              <small>занято · ${escapeHtml(booked.bookedBy || "без имени")}</small>
-            `;
+              <small>${bookingTypes[selectedType].label}</small>
+            </div>
+            <div class="slot-types">
+              ${typeRowHtml("lunch", lunch)}
+              ${typeRowHtml("break", brk)}
+            </div>
+          `;
 
-            const pencil = slot.querySelector(".icon-btn");
-            pencil.addEventListener("click", (e) => {
-              e.stopPropagation();
-              openEditModal(booked);
-            });
-
-            slot.addEventListener("click", () => openEditModal(booked));
-            slot.addEventListener("keydown", (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                openEditModal(booked);
-              }
-            });
-
-            slot.addEventListener("dragstart", (e) => {
-              e.dataTransfer.setData("text/plain", booked.id);
-              e.dataTransfer.effectAllowed = "move";
-              startDrag(booked, slot);
-            });
-
-            slot.addEventListener("dragend", () => endDrag(slot));
-            grid.appendChild(slot);
-            return;
-          }
-
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "slot free";
-          btn.setAttribute("aria-pressed", selectedTime === time ? "true" : "false");
-          btn.innerHTML = `<strong>${time}</strong><small>свободно</small>`;
-
-          btn.addEventListener("click", () => {
+          slot.addEventListener("click", () => {
             selectedTime = time;
-            [...boardEl.querySelectorAll(".slot.free")].forEach(el => el.setAttribute("aria-pressed", "false"));
-            btn.setAttribute("aria-pressed", "true");
-            setResult(`Выбрано: <b>${selectedDate}</b>, <b>${time}</b>. Нажмите «Забронировать».`);
+            [...boardEl.querySelectorAll(".slot")].forEach(el => el.classList.remove("selected-slot"));
+            slot.classList.add("selected-slot");
+            setResult(`Выбрано: <b>${selectedDate}</b>, <b>${time}</b>, тип <b>${escapeHtml(bookingTypes[selectedType].label)}</b>. Нажмите «Забронировать».`);
           });
 
-          btn.addEventListener("dragover", (e) => {
+          slot.querySelectorAll(".type-row.booked").forEach(row => {
+            const bookingId = row.dataset.bookingId;
+            const booking = bookingById(bookingId);
+            if (!booking) return;
+
+            row.addEventListener("click", e => e.stopPropagation());
+
+            const editBtn = row.querySelector(".icon-btn");
+            if (editBtn){
+              editBtn.addEventListener("click", e => {
+                e.stopPropagation();
+                openEditModal(booking);
+              });
+            }
+
+            row.addEventListener("dragstart", e => {
+              e.dataTransfer.setData("text/plain", booking.id);
+              e.dataTransfer.effectAllowed = "move";
+              startDrag(booking, row);
+            });
+
+            row.addEventListener("dragend", () => endDrag(row));
+
+            row.addEventListener("dragover", e => {
+              if (!dragBookingId) return;
+              e.preventDefault();
+              row.classList.add("drop-target");
+            });
+
+            row.addEventListener("dragleave", () => {
+              row.classList.remove("drop-target");
+            });
+
+            row.addEventListener("drop", async e => {
+              e.preventDefault();
+              row.classList.remove("drop-target");
+              if (!dragBookingId) return;
+              await moveBookingToTarget(selectedDate, time);
+            });
+          });
+
+          slot.querySelectorAll(".type-row.free").forEach(row => {
+            row.addEventListener("click", e => {
+              e.stopPropagation();
+              selectedTime = time;
+              [...boardEl.querySelectorAll(".slot")].forEach(el => el.classList.remove("selected-slot"));
+              slot.classList.add("selected-slot");
+              setResult(`Выбрано: <b>${selectedDate}</b>, <b>${time}</b>, тип <b>${escapeHtml(bookingTypes[selectedType].label)}</b>. Нажмите «Забронировать».`);
+            });
+          });
+
+          slot.addEventListener("dragover", e => {
             if (!dragBookingId) return;
             e.preventDefault();
-            btn.classList.add("drop-target");
+            slot.classList.add("drop-target");
           });
 
-          btn.addEventListener("dragleave", () => {
-            btn.classList.remove("drop-target");
+          slot.addEventListener("dragleave", () => {
+            slot.classList.remove("drop-target");
           });
 
-          btn.addEventListener("drop", async (e) => {
+          slot.addEventListener("drop", async e => {
             e.preventDefault();
-            btn.classList.remove("drop-target");
+            slot.classList.remove("drop-target");
             if (!dragBookingId) return;
             await moveBookingToTarget(selectedDate, time);
           });
 
-          grid.appendChild(btn);
+          grid.appendChild(slot);
         });
 
         band.appendChild(grid);
@@ -1091,7 +1333,7 @@
     }
 
     function renderAllBookings(){
-      const rows = [...bookingsCache].sort((a,b) => `${a.date}_${a.time}`.localeCompare(`${b.date}_${b.time}`));
+      const rows = [...bookingsCache].sort((a,b) => `${a.date}_${a.time}_${bookingTypeOf(a)}`.localeCompare(`${b.date}_${b.time}_${bookingTypeOf(b)}`));
       if (!rows.length){
         allBookingsBody.innerHTML = '<div style="padding:16px;border-radius:18px;background:rgba(17,24,39,.04);color:var(--muted)">Пока нет записей.</div>';
         return;
@@ -1104,6 +1346,7 @@
               <th>Имя</th>
               <th>Дата</th>
               <th>Время</th>
+              <th>Тип</th>
               <th>Действие</th>
             </tr>
           </thead>
@@ -1113,6 +1356,7 @@
                 <td>${escapeHtml(r.bookedBy || "")}</td>
                 <td>${escapeHtml(r.date || "")}</td>
                 <td>${escapeHtml(r.time || "")}</td>
+                <td>${escapeHtml(bookingTypes[bookingTypeOf(r)].label)}</td>
                 <td class="actions-cell">
                   <button class="button ghost" type="button" data-edit-id="${escapeHtml(r.id)}">✎</button>
                 </td>
@@ -1154,7 +1398,7 @@
         renderBoard();
         if (allModal.classList.contains("open")) renderAllBookings();
         if (editModal.classList.contains("open") && editingBooking){
-          renderEditTimeOptions(editDateEl.value, editingBooking.id, editTimeEl.value);
+          renderEditTimeOptions(editDateEl.value, editingBooking.id, editTimeEl.value, bookingTypeOf(editingBooking));
           if (editTimeEl.querySelector(`option[value="${editTimeEl.value}"]`)?.disabled){
             editTimeEl.value = editingBooking.time;
           }
@@ -1175,25 +1419,60 @@
 
     closeEditModalBtn.addEventListener("click", closeEditModal);
     cancelEditBtn.addEventListener("click", closeEditModal);
+    deleteEditBtn.addEventListener("click", deleteEditingBooking);
     editModal.addEventListener("click", e => { if (e.target === editModal) closeEditModal(); });
     editForm.addEventListener("submit", saveEditedBooking);
     editDateEl.addEventListener("change", () => {
       if (!editingBooking) return;
-      renderEditTimeOptions(editDateEl.value, editingBooking.id, editTimeEl.value);
+      renderEditTimeOptions(editDateEl.value, editingBooking.id, editTimeEl.value, bookingTypeOf(editingBooking));
       if (editTimeEl.value && editTimeEl.querySelector(`option[value="${editTimeEl.value}"]`)?.disabled){
         editTimeEl.value = editingBooking.time;
       }
     });
+
+    typeButtons.forEach(btn => {
+      btn.addEventListener("click", () => setSelectedType(btn.dataset.bookingType));
+    });
+
+    if (trashZone){
+      trashZone.addEventListener("dragover", e => {
+        if (!dragBookingId) return;
+        e.preventDefault();
+        trashZone.classList.add("drop-target");
+      });
+
+      trashZone.addEventListener("dragleave", () => {
+        trashZone.classList.remove("drop-target");
+      });
+
+      trashZone.addEventListener("drop", async e => {
+        e.preventDefault();
+        trashZone.classList.remove("drop-target");
+        if (!dragBookingId) return;
+        try{
+          await deleteBookingById(dragBookingId);
+          setResult("Запись удалена через корзину.");
+        } catch (err){
+          setResult(err?.message || "Не удалось удалить запись.", true);
+        } finally {
+          dragBookingId = null;
+          showTrash(false);
+        }
+      });
+    }
 
     async function init(){
       selectedDate = todayISO();
       currentMonth = new Date();
       renderCalendar();
       selectedDateLabel.textContent = selectedDate;
+      setSelectedType(selectedType);
       subscribe();
     }
 
     init();
+
   </script>
+
 </body>
 </html>
