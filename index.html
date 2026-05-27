@@ -885,7 +885,7 @@
       <div class="modal-head">
         <div>
           <h2>Функционал старшего смены</h2>
-          <p>Доступ по паролю 2486456. После входа доступны ограничения для обедов и редактирования.</p>
+          <p>После входа доступны дополнительные настройки.</p>
         </div>
         <button class="button secondary" id="closeSupervisorModalBtn" type="button">Закрыть</button>
       </div>
@@ -1814,7 +1814,7 @@
         ? escapeHtml(booking.bookedBy || "без имени")
         : available
           ? "Свободно"
-          : escapeHtml(unavailableText || "Недоступно");
+          : escapeHtml(unavailableText || "Недоступно, обратитесь к старшему");
       return `
         <div class="type-row ${booked ? "booked" : available ? "free" : "blocked"} ${type}" ${booked ? `data-booking-id="${escapeHtml(booking.id)}" draggable="true"` : ""} data-type="${type}">
           <div>
