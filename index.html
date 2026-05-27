@@ -456,6 +456,12 @@
       color:#475569;
       cursor:pointer;
     }
+    .type-row.blocked{
+      background:rgba(148,163,184,.12);
+      border-color:rgba(148,163,184,.18);
+      color:#64748b;
+      cursor:not-allowed;
+    }
     .type-row.booked.break{
       background:rgba(79,70,229,.10);
       border-color:rgba(79,70,229,.16);
@@ -889,8 +895,11 @@
       return new Date(date.getTime() - date.getTimezoneOffset()*60000).toISOString().slice(0,10);
     }
 
-    function slotId(date, time, type){
-      return `${date}__${time}__${type}`.replace(/\s+/g, "_");
+    function slotId(date, time, type, lunchSlot = null){
+      const base = `${date}__${time}__${type}`.replace(/\s+/g, "_");
+      return type === "lunch" && (lunchSlot === 1 || lunchSlot === 2)
+        ? `${base}__${lunchSlot}`
+        : base;
     }
 
     function formatMonth(date){
@@ -942,10 +951,10 @@
         let body = "";
         if (action === "created"){
           const values = entry?.to || entry?.values || {};
-          body = `Создано: ${escapeHtml(values.bookedBy || entry?.bookedBy || "—")}, ${escapeHtml(values.date || entry?.date || "—")} в ${escapeHtml(values.time || entry?.time || "—")} (${escapeHtml(bookingTypes[bookingTypeOf({ type: values.type || entry?.type || "break" })].label)})`;
+          body = `Создано: ${escapeHtml(values.bookedBy || entry?.bookedBy || "—")}, ${escapeHtml(values.date || entry?.date || "—")} в ${escapeHtml(values.time || entry?.time || "—")} (${escapeHtml(bookingLabel({ id: "", type: values.type || entry?.type || "break", lunchSlot: values.lunchSlot || entry?.lunchSlot || 1 }))})`;
         } else if (action === "deleted"){
           const values = entry?.from || entry?.values || {};
-          body = `Удалено: ${escapeHtml(values.bookedBy || entry?.bookedBy || "—")}, ${escapeHtml(values.date || entry?.date || "—")} в ${escapeHtml(values.time || entry?.time || "—")} (${escapeHtml(bookingTypes[bookingTypeOf({ type: values.type || entry?.type || "break" })].label)})`;
+          body = `Удалено: ${escapeHtml(values.bookedBy || entry?.bookedBy || "—")}, ${escapeHtml(values.date || entry?.date || "—")} в ${escapeHtml(values.time || entry?.time || "—")} (${escapeHtml(bookingLabel({ id: "", type: values.type || entry?.type || "break", lunchSlot: values.lunchSlot || entry?.lunchSlot || 1 }))})`;
         } else {
           const from = entry?.from || {};
           const to = entry?.to || {};
@@ -953,7 +962,7 @@
           if ((from.bookedBy ?? "") !== (to.bookedBy ?? "")) parts.push(`имя: ${escapeHtml(from.bookedBy || "—")} → ${escapeHtml(to.bookedBy || "—")}`);
           if ((from.date ?? "") !== (to.date ?? "")) parts.push(`дата: ${escapeHtml(from.date || "—")} → ${escapeHtml(to.date || "—")}`);
           if ((from.time ?? "") !== (to.time ?? "")) parts.push(`время: ${escapeHtml(from.time || "—")} → ${escapeHtml(to.time || "—")}`);
-          if ((from.type ?? "") !== (to.type ?? "")) parts.push(`тип: ${escapeHtml(bookingTypes[bookingTypeOf({ type: from.type })].label)} → ${escapeHtml(bookingTypes[bookingTypeOf({ type: to.type })].label)}`);
+          if ((from.type ?? "") !== (to.type ?? "")) parts.push(`тип: ${escapeHtml(bookingLabel({ id: "", type: from.type, lunchSlot: from.lunchSlot || 1 }))} → ${escapeHtml(bookingLabel({ id: "", type: to.type, lunchSlot: to.lunchSlot || 1 }))}`);
           body = parts.length ? parts.join("; ") : "Поля сохранены без заметных изменений.";
         }
 
@@ -970,6 +979,7 @@
     }
 
     function setStatus(ok){
+      if (!dbState) return;
       dbState.innerHTML = ok
         ? '<span class="dot"></span><span>Подключено</span>'
         : '<span class="dot" style="background:var(--danger);box-shadow:0 0 0 4px rgba(220,38,38,.12)"></span><span>Ошибка базы</span>';
@@ -999,6 +1009,35 @@
       return booking?.type === "lunch" ? "lunch" : "break";
     }
 
+    function bookingLabel(booking){
+      if (bookingTypeOf(booking) === "lunch"){
+        const slot = Number(booking?.lunchSlot || 1);
+        return `Обед ${slot}`;
+      }
+      return "Перерыв";
+    }
+
+    function lunchSlotFromId(id){
+      const parts = String(id || "").split("__");
+      const maybeSlot = Number(parts[3]);
+      return Number.isFinite(maybeSlot) && maybeSlot > 0 ? maybeSlot : 1;
+    }
+
+    function lunchSlotOf(booking){
+      if (bookingTypeOf(booking) !== "lunch") return null;
+      const slot = Number(booking?.lunchSlot || lunchSlotFromId(booking?.id));
+      return slot === 2 ? 2 : 1;
+    }
+
+    function normalizedBooking(data, id){
+      const type = bookingTypeOf(data);
+      const booking = { id, ...data, type };
+      if (type === "lunch"){
+        booking.lunchSlot = lunchSlotOf(booking) || 1;
+      }
+      return booking;
+    }
+
     function setSelectedType(type){
       selectedType = bookingTypes[type] ? type : "break";
       typeButtons.forEach(btn => {
@@ -1012,9 +1051,52 @@
       return bookingsCache.filter(b => b.date === date);
     }
 
-
     function bookingById(id){
       return bookingsCache.find(b => b.id === id);
+    }
+
+    function bookingsAt(date, time, excludeId = null){
+      return bookingsCache.filter(b =>
+        b.date === date &&
+        b.time === time &&
+        b.id !== excludeId
+      );
+    }
+
+    function lunchesAt(date, time, excludeId = null){
+      return bookingsAt(date, time, excludeId).filter(b => bookingTypeOf(b) === "lunch");
+    }
+
+    function breakAt(date, time, excludeId = null){
+      return bookingsAt(date, time, excludeId).find(b => bookingTypeOf(b) === "break") || null;
+    }
+
+    function canPlaceBooking(date, time, type, excludeId = null){
+      const lunches = lunchesAt(date, time, excludeId);
+      const brk = breakAt(date, time, excludeId);
+
+      if (type === "lunch"){
+        if (lunches.length >= 2) return false;
+        if (brk && lunches.length >= 1) return false;
+        return true;
+      }
+
+      return !brk && lunches.length < 2;
+    }
+
+    function availableLunchSlot(date, time, excludeId = null, preferredSlot = null){
+      const lunches = lunchesAt(date, time, excludeId);
+      const occupied = new Set(lunches.map(b => lunchSlotOf(b) || 1));
+      const brk = breakAt(date, time, excludeId);
+
+      if (brk && lunches.length >= 1){
+        return null;
+      }
+
+      if (preferredSlot && !occupied.has(preferredSlot)) return preferredSlot;
+      if (!occupied.has(1)) return 1;
+      if (!occupied.has(2)) return 2;
+      return null;
     }
 
     function clearDropTargets(){
@@ -1108,15 +1190,24 @@
       bookingsFor(date).forEach(b => {
         const time = b.time;
         if (!map.has(time)) map.set(time, {});
-        map.get(time)[bookingTypeOf(b)] = b;
+        const bucket = map.get(time);
+        if (bookingTypeOf(b) === "lunch"){
+          if (!bucket.lunch) bucket.lunch = [];
+          bucket.lunch.push(b);
+          bucket.lunch.sort((a, b) => (lunchSlotOf(a) || 1) - (lunchSlotOf(b) || 1));
+        } else {
+          bucket.break = b;
+        }
       });
       return map;
     }
 
     function updateCounts(){
+      if (!bookedCountEl && !freeCountEl) return;
       const dayBookings = bookingsFor(selectedDate).filter(b => bookingTypeOf(b) === selectedType);
+      const capacity = selectedType === "lunch" ? times.length * 2 : times.length;
       if (bookedCountEl) bookedCountEl.textContent = dayBookings.length;
-      if (freeCountEl) freeCountEl.textContent = times.length - dayBookings.length;
+      if (freeCountEl) freeCountEl.textContent = Math.max(0, capacity - dayBookings.length);
     }
 
     function setResult(message, isError = false){
@@ -1169,17 +1260,13 @@
     }
 
     function renderEditTimeOptions(date, currentId, currentTime, type){
-      const occupied = new Set(
-        bookingsFor(date)
-          .filter(b => b.id !== currentId && bookingTypeOf(b) === type)
-          .map(b => b.time)
-      );
       editTimeEl.innerHTML = "";
       times.forEach(time => {
+        const canBook = canPlaceBooking(date, time, type, currentId);
         const opt = document.createElement("option");
         opt.value = time;
-        opt.textContent = occupied.has(time) ? `${time} — занято` : time;
-        opt.disabled = occupied.has(time);
+        opt.textContent = canBook ? time : `${time} — занято`;
+        opt.disabled = !canBook;
         if (time === currentTime) opt.selected = true;
         editTimeEl.appendChild(opt);
       });
@@ -1209,42 +1296,54 @@
     }
 
     async function saveRecord({ sourceId = null, name, date, time, type = selectedType }){
-      const newId = slotId(date, time, type);
-      const newRef = db.collection(collectionName).doc(newId);
       const now = new Date().toISOString();
 
       return db.runTransaction(async tx => {
-        if (sourceId){
-          const oldRef = db.collection(collectionName).doc(sourceId);
-          const oldSnap = await tx.get(oldRef);
-          if (!oldSnap.exists){
-            throw new Error("Запись не найдена.");
+        const oldRef = sourceId ? db.collection(collectionName).doc(sourceId) : null;
+        const oldSnap = sourceId ? await tx.get(oldRef) : null;
+        const base = oldSnap?.data() || {};
+
+        if (sourceId && !oldSnap?.exists){
+          throw new Error("Запись не найдена.");
+        }
+
+        if (type === "lunch"){
+          const preferredSlot = sourceId && bookingTypeOf(base) === "lunch" ? lunchSlotOf(base) : null;
+          const lunchSlot = availableLunchSlot(date, time, sourceId, preferredSlot);
+          if (!lunchSlot){
+            throw new Error("В этой ячейке уже два обеда.");
           }
 
-          if (newId !== sourceId){
+          const newId = slotId(date, time, type, lunchSlot);
+          const newRef = db.collection(collectionName).doc(newId);
+
+          if (sourceId && newId !== sourceId){
             const newSnap = await tx.get(newRef);
             if (newSnap.exists){
-              throw new Error("Это время уже занято для выбранного типа.");
+              throw new Error("Этот слот уже занят для выбранного типа.");
             }
           }
 
-          const base = oldSnap.data() || {};
           const history = Array.isArray(base.history) ? [...base.history] : [];
           history.push({
-            action: "updated",
+            action: sourceId ? "updated" : "created",
             at: now,
             by: name,
-            from: {
-              bookedBy: base.bookedBy || "",
-              date: base.date || "",
-              time: base.time || "",
-              type: base.type || "break"
-            },
+            ...(sourceId ? {
+              from: {
+                bookedBy: base.bookedBy || "",
+                date: base.date || "",
+                time: base.time || "",
+                type: base.type || "break",
+                lunchSlot: base.lunchSlot || lunchSlotOf(base)
+              }
+            } : {}),
             to: {
               bookedBy: name,
               date,
               time,
-              type
+              type,
+              lunchSlot
             }
           });
 
@@ -1253,41 +1352,64 @@
             date,
             time,
             type,
+            lunchSlot,
             bookedBy: name,
             updatedAt: now,
             history
           };
 
           tx.set(newRef, data, { merge: true });
-          if (newId !== sourceId) tx.delete(oldRef);
+          if (sourceId && newId !== sourceId) tx.delete(oldRef);
           return newId;
         }
 
-        const snap = await tx.get(newRef);
-        if (snap.exists){
-          throw new Error("Этот слот уже занят для выбранного типа.");
+        if (!canPlaceBooking(date, time, "break", sourceId)){
+          throw new Error("В этой ячейке уже есть перерыв или два обеда.");
         }
 
-        tx.set(newRef, {
+        const newId = slotId(date, time, type);
+        const newRef = db.collection(collectionName).doc(newId);
+
+        if (sourceId && newId !== sourceId){
+          const newSnap = await tx.get(newRef);
+          if (newSnap.exists){
+            throw new Error("Это время уже занято для выбранного типа.");
+          }
+        }
+
+        const history = Array.isArray(base.history) ? [...base.history] : [];
+        history.push({
+          action: sourceId ? "updated" : "created",
+          at: now,
+          by: name,
+          ...(sourceId ? {
+            from: {
+              bookedBy: base.bookedBy || "",
+              date: base.date || "",
+              time: base.time || "",
+              type: base.type || "break"
+            }
+          } : {}),
+          to: {
+            bookedBy: name,
+            date,
+            time,
+            type
+          }
+        });
+
+        const data = {
+          ...base,
           date,
           time,
           type,
           bookedBy: name,
-          bookedAt: now,
           updatedAt: now,
-          history: [{
-            action: "created",
-            at: now,
-            by: name,
-            to: {
-              bookedBy: name,
-              date,
-              time,
-              type
-            }
-          }]
-        }, { merge: true });
+          history
+        };
 
+        tx.set(newRef, data, { merge: true });
+        if (sourceId && newId !== sourceId) tx.delete(oldRef);
         return newId;
       });
     }
@@ -1438,16 +1560,18 @@
       }
     }
 
-    function typeRowHtml(type, booking){
+    function typeRowHtml(type, booking, index = null, available = true){
       const booked = !!booking;
+      const title = type === "lunch" ? `Обед ${index || ""}`.trim() : bookingTypes[type].label;
+      const statusText = booked ? "Занято" : available ? "Свободно" : "Недоступно";
       return `
-        <div class="type-row ${booked ? "booked" : "free"} ${type}" ${booked ? `data-booking-id="${escapeHtml(booking.id)}" draggable="true"` : ""} data-type="${type}">
+        <div class="type-row ${booked ? "booked" : available ? "free" : "blocked"} ${type}" ${booked ? `data-booking-id="${escapeHtml(booking.id)}" draggable="true"` : ""} data-type="${type}">
           <div>
-            <strong>${bookingTypes[type].label}</strong>
-            <small>${booked ? escapeHtml(booking.bookedBy || "без имени") : "Свободно"}</small>
+            <strong>${title}</strong>
+            <small>${booked ? escapeHtml(booking.bookedBy || "без имени") : available ? "Свободно" : "Недоступно из-за 2 обедов"}</small>
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex:none">
-            <small>${booked ? "Занято" : "Свободно"}</small>
+            <small>${statusText}</small>
             ${booked ? '<button class="drag-handle" type="button" title="Перетащить">⠿</button><button class="icon-btn" type="button" title="Редактировать" aria-label="Редактировать">✎</button>' : ""}
           </div>
         </div>
@@ -1482,8 +1606,9 @@
         grid.appendChild(label);
 
         rowTimes.forEach(time => {
-          const lunch = dayBookings.get(time)?.lunch || null;
+          const lunchBookings = dayBookings.get(time)?.lunch || [];
           const brk = dayBookings.get(time)?.break || null;
+          const breakAllowed = canPlaceBooking(selectedDate, time, "break");
 
           const slot = document.createElement("div");
           slot.className = "slot";
@@ -1499,10 +1624,15 @@
               <small>${bookingTypes[selectedType].label}</small>
             </div>
             <div class="slot-types">
-              ${typeRowHtml("lunch", lunch)}
-              ${typeRowHtml("break", brk)}
+              ${typeRowHtml("lunch", lunchBookings[0] || null, 1, true)}
+              ${typeRowHtml("lunch", lunchBookings[1] || null, 2, true)}
+              ${typeRowHtml("break", brk, null, breakAllowed)}
             </div>
           `;
+
+          if (lunchBookings.length >= 2 && !brk){
+            slot.classList.add("booked");
+          }
 
           slot.addEventListener("click", () => {
             selectedTime = time;
@@ -1587,7 +1717,11 @@
     }
 
     function renderAllBookings(){
-      const rows = [...bookingsCache].sort((a,b) => `${a.date}_${a.time}_${bookingTypeOf(a)}`.localeCompare(`${b.date}_${b.time}_${bookingTypeOf(b)}`));
+      const rows = [...bookingsCache].sort((a,b) => {
+        const aKey = `${a.date}_${a.time}_${bookingTypeOf(a)}_${bookingTypeOf(a) === "lunch" ? lunchSlotOf(a) : 0}`;
+        const bKey = `${b.date}_${b.time}_${bookingTypeOf(b)}_${bookingTypeOf(b) === "lunch" ? lunchSlotOf(b) : 0}`;
+        return aKey.localeCompare(bKey);
+      });
       if (!rows.length){
         allBookingsBody.innerHTML = '<div style="padding:16px;border-radius:18px;background:rgba(17,24,39,.04);color:var(--muted)">Пока нет записей.</div>';
         return;
@@ -1610,7 +1744,7 @@
                 <td>${escapeHtml(r.bookedBy || "")}</td>
                 <td>${escapeHtml(r.date || "")}</td>
                 <td>${escapeHtml(r.time || "")}</td>
-                <td>${escapeHtml(bookingTypes[bookingTypeOf(r)].label)}</td>
+                <td>${escapeHtml(bookingLabel(r))}</td>
                 <td class="actions-cell">
                   <button class="button ghost" type="button" data-edit-id="${escapeHtml(r.id)}">✎</button>
                 </td>
@@ -1627,7 +1761,6 @@
         });
       });
     }
-
     function openAll(){
       renderAllBookings();
       allModal.classList.add("open");
@@ -1646,7 +1779,7 @@
         snap.forEach(doc => {
           const d = doc.data();
           if (!d || !d.bookedBy) return;
-          list.push({ id: doc.id, ...d });
+          list.push(normalizedBooking(d, doc.id));
         });
         bookingsCache = list;
         renderBoard();
@@ -1666,7 +1799,6 @@
         setStatus(false);
       });
     }
-
     prevMonthBtn.addEventListener("click", () => setMonth(-1));
     nextMonthBtn.addEventListener("click", () => setMonth(1));
     bookBtn.addEventListener("click", createBooking);
