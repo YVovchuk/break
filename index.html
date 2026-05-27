@@ -885,7 +885,7 @@
       <div class="modal-head">
         <div>
           <h2>Функционал старшего смены</h2>
-          <p>После входа доступны дополнительные настройки.</p>
+          <p>Доступ по паролю 2486456. После входа доступны ограничения для обедов и редактирования.</p>
         </div>
         <button class="button secondary" id="closeSupervisorModalBtn" type="button">Закрыть</button>
       </div>
@@ -1809,12 +1809,12 @@
       const booked = !!booking;
       const locked = isSupervisorEditLocked();
       const title = type === "lunch" ? `Обед ${index || ""}`.trim() : bookingTypes[type].label;
-      const statusText = booked ? "Занято" : available ? "Свободно" : "Недоступно;
+      const statusText = booked ? "Занято" : available ? "Свободно" : "Недоступно";
       const subtitle = booked
         ? escapeHtml(booking.bookedBy || "без имени")
         : available
           ? "Свободно"
-          : escapeHtml(unavailableText || "Выключено старшим смены.");
+          : escapeHtml(unavailableText || "Недоступно");
       return `
         <div class="type-row ${booked ? "booked" : available ? "free" : "blocked"} ${type}" ${booked ? `data-booking-id="${escapeHtml(booking.id)}" draggable="true"` : ""} data-type="${type}">
           <div>
