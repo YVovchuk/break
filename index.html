@@ -651,11 +651,6 @@
       font-size:12px;
       line-height:1.5;
     }
-    .history-diff{
-      color:#475569;
-      font-size:11px;
-      line-height:1.45;
-    }
     .history-empty{
       color:var(--muted);
       font-size:12px;
@@ -939,7 +934,6 @@
         const action = entry?.action === "created" ? "created" : entry?.action === "deleted" ? "deleted" : "updated";
         const title = action === "created" ? "Создано" : action === "deleted" ? "Удалено" : "Изменено";
         const at = formatDateTime(entry?.at);
-        const author = entry?.by ? `Пользователь: ${escapeHtml(entry.by)}` : "Пользователь не указан";
 
         let body = "";
         if (action === "created"){
@@ -966,7 +960,6 @@
               <small>${escapeHtml(at)}</small>
             </div>
             <div class="history-body">${body}</div>
-            <div class="history-diff">${escapeHtml(author)}</div>
           </div>
         `;
       }).join("");
