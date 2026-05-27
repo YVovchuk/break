@@ -1618,14 +1618,14 @@
           const lunchAllowed = canPlaceBooking(selectedDate, time, "lunch");
           const breakAllowed = canPlaceBooking(selectedDate, time, "break");
           const lunchUnavailableText = lunchBookings.length >= 2
-            ? "Недоступно из-за 2 обедов"
+            ? "Есть два обеда"
             : brk && lunchBookings.length >= 1
-              ? "Недоступно из-за перерыва"
+              ? "Есть обед и перерыв"
               : "Недоступно";
           const breakUnavailableText = lunchBookings.length >= 2
-            ? "Недоступно из-за 2 обедов"
+            ? "Есть два обеда"
             : brk
-              ? "Недоступно из-за перерыва"
+              ? "Есть обед и перерыв"
               : "Недоступно";
 
           const slot = document.createElement("div");
