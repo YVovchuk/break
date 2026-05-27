@@ -1826,56 +1826,80 @@ function renderLunchExcel(){
     .filter(b => b.date === selectedDate && (b.type || "break") === "lunch")
     .sort((a,b)=>a.time.localeCompare(b.time));
 
-  const times = [
-    "12:00","12:30","13:00","13:30","14:00","14:30",
-    "15:00","15:30","16:00","16:30","17:00","17:30",
-    "18:00","18:30"
-  ];
+  const times = [];
+
+  for (let h = 12; h <= 18; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      if (h === 18 && m > 30) continue;
+
+      const hh = String(h).padStart(2, "0");
+      const mm = String(m).padStart(2, "0");
+
+      times.push(`${hh}:${mm}`);
+    }
+  }
+
+  const grouped = {};
+
+  lunchBookings.forEach(b => {
+    const name = (b.bookedBy || "").trim();
+
+    if (!grouped[name]) {
+      grouped[name] = [];
+    }
+
+    grouped[name].push(b.time);
+  });
 
   head.innerHTML = `
     <tr style="background:#eef2f7">
       <th style="padding:14px;border:1px solid #d6dde8;text-align:left;min-width:260px">Сотрудник</th>
-      <th style="padding:14px;border:1px solid #d6dde8;text-align:left;min-width:120px">Время</th>
-      ${times.map(t=>`<th style="padding:10px;border:1px solid #d6dde8;font-size:12px">${t}</th>`).join("")}
+      ${times.map(t=>`
+        <th style="padding:10px;border:1px solid #d6dde8;font-size:12px">${t}</th>
+      `).join("")}
     </tr>
   `;
 
-  body.innerHTML = lunchBookings.map(b => `
-    <tr>
-      <td style="padding:18px;border:1px solid #d6dde8;background:#f8fafc;font-weight:600">${b.bookedBy || ""}</td>
-      <td style="padding:18px;border:1px solid #d6dde8;background:#f8fafc;font-weight:700">${b.time}</td>
+  const names = Object.keys(grouped);
 
-      ${times.map(t => `
-        <td style="height:54px;border:1px solid #d6dde8;background:#fff;text-align:center">
-          ${t === b.time
-            ? `<div style="
-                background:#cfe9d8;
-                color:#14532d;
-                border-radius:0;
-                padding:8px;
-                font-weight:800;
-                font-size:13px;
-                width:100%;
-                height:100%;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                flex-direction:column;
-              ">
-                <div>Обед</div>
-                <div style="font-size:11px;margin-top:4px">${b.time}</div>
-              </div>`
-            : ""
-          }
+  body.innerHTML = names.map(name => {
+    const personTimes = grouped[name];
+
+    return `
+      <tr>
+        <td style="padding:18px;border:1px solid #d6dde8;background:#f8fafc;font-weight:600">
+          ${name}
         </td>
-      `).join("")}
-    </tr>
-  `).join("");
 
-  if (!lunchBookings.length){
+        ${times.map(t => `
+          <td style="height:54px;border:1px solid #d6dde8;background:#fff;text-align:center">
+            ${personTimes.includes(t)
+              ? `<div style="
+                  background:#cfe9d8;
+                  color:#14532d;
+                  padding:8px;
+                  font-weight:800;
+                  font-size:13px;
+                  width:100%;
+                  height:100%;
+                  display:flex;
+                  align-items:center;
+                  justify-content:center;
+                ">
+                  ✓
+                </div>`
+              : ""
+            }
+          </td>
+        `).join("")}
+      </tr>
+    `;
+  }).join("");
+
+  if (!names.length){
     body.innerHTML = `
       <tr>
-        <td colspan="${times.length + 2}" style="padding:40px;text-align:center;color:#64748b">
+        <td colspan="${times.length + 1}" style="padding:40px;text-align:center;color:#64748b">
           На сегодня обедов нет
         </td>
       </tr>
