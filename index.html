@@ -939,6 +939,7 @@
         const action = entry?.action === "created" ? "created" : entry?.action === "deleted" ? "deleted" : "updated";
         const title = action === "created" ? "Создано" : action === "deleted" ? "Удалено" : "Изменено";
         const at = formatDateTime(entry?.at);
+        const author = entry?.by ? `Пользователь: ${escapeHtml(entry.by)}` : "Пользователь не указан";
 
         let body = "";
         if (action === "created"){
