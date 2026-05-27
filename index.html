@@ -588,6 +588,80 @@
       line-height:1.5;
       margin-top:-4px;
     }
+    .edit-history{
+      grid-column:1/-1;
+      border:1px solid rgba(17,24,39,.08);
+      background:rgba(17,24,39,.03);
+      border-radius:18px;
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+    .edit-history-head{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+      flex-wrap:wrap;
+    }
+    .edit-history-head h3{
+      font-size:14px;
+      letter-spacing:-.02em;
+      margin:0;
+    }
+    .edit-history-head p{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:11px;
+      line-height:1.4;
+    }
+    .history-list{
+      display:grid;
+      gap:8px;
+    }
+    .history-item{
+      border-radius:14px;
+      border:1px solid rgba(17,24,39,.08);
+      background:#fff;
+      padding:10px 12px;
+      display:grid;
+      gap:6px;
+    }
+    .history-item.created{border-color:rgba(22,163,74,.18);background:rgba(22,163,74,.06)}
+    .history-item.updated{border-color:rgba(79,70,229,.16);background:rgba(79,70,229,.05)}
+    .history-item.deleted{border-color:rgba(220,38,38,.18);background:rgba(220,38,38,.05)}
+    .history-meta{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .history-meta strong{
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+    }
+    .history-meta small{
+      color:var(--muted);
+      font-size:11px;
+    }
+    .history-body{
+      color:#334155;
+      font-size:12px;
+      line-height:1.5;
+    }
+    .history-diff{
+      color:#475569;
+      font-size:11px;
+      line-height:1.45;
+    }
+    .history-empty{
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.5;
+      padding:8px 0 2px;
+    }
     .table .actions-cell{
       white-space:nowrap;
       width:1%;
@@ -709,6 +783,15 @@
           <select id="editTime"></select>
         </div>
         <div class="edit-help">Карандаш открывает редактирование. Перетаскивание слота переносит бронь в другую ячейку без открытия формы.</div>
+        <div class="edit-history">
+          <div class="edit-history-head">
+            <div>
+              <h3>История изменений</h3>
+              <p>Последние действия по этой брони</p>
+            </div>
+          </div>
+          <div class="history-list" id="editHistoryList"></div>
+        </div>
         <div class="actions">
           <button class="button primary" type="submit">Сохранить</button>
           <button class="button danger" id="deleteEditBtn" type="button">Удалить</button>
@@ -777,6 +860,7 @@
     const editNameEl = document.getElementById("editName");
     const editDateEl = document.getElementById("editDate");
     const editTimeEl = document.getElementById("editTime");
+    const editHistoryList = document.getElementById("editHistoryList");
     const closeEditModalBtn = document.getElementById("closeEditModalBtn");
     const cancelEditBtn = document.getElementById("cancelEditBtn");
     const deleteEditBtn = document.getElementById("deleteEditBtn");
@@ -823,6 +907,69 @@
         .replaceAll(">","&gt;")
         .replaceAll('"',"&quot;")
         .replaceAll("'","&#39;");
+    }
+
+    function formatDateTime(value){
+      if (!value) return "—";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return new Intl.DateTimeFormat("ru-RU", {
+        dateStyle: "medium",
+        timeStyle: "short"
+      }).format(date);
+    }
+
+    function historyEntriesForBooking(booking){
+      return Array.isArray(booking?.history) ? booking.history : [];
+    }
+
+    function renderEditHistory(booking){
+      if (!editHistoryList) return;
+
+      const history = historyEntriesForBooking(booking)
+        .slice()
+        .sort((a, b) => String(b.at || "").localeCompare(String(a.at || "")));
+
+      if (!history.length){
+        editHistoryList.innerHTML = '<div class="history-empty">История пока пуста. После сохранения изменений здесь появятся записи о создании, переносе и редактировании.</div>';
+        return;
+      }
+
+      editHistoryList.innerHTML = history.slice(0, 12).map(entry => {
+        const action = entry?.action === "created" ? "created" : entry?.action === "deleted" ? "deleted" : "updated";
+        const title = action === "created" ? "Создано" : action === "deleted" ? "Удалено" : "Изменено";
+        const at = formatDateTime(entry?.at);
+        const author = entry?.by ? `Пользователь: ${escapeHtml(entry.by)}` : "Пользователь не указан";
+
+        let body = "";
+        if (action === "created"){
+          const values = entry?.to || entry?.values || {};
+          body = `Создано: ${escapeHtml(values.bookedBy || entry?.bookedBy || "—")}, ${escapeHtml(values.date || entry?.date || "—")} в ${escapeHtml(values.time || entry?.time || "—")} (${escapeHtml(bookingTypes[bookingTypeOf({ type: values.type || entry?.type || "break" })].label)})`;
+        } else if (action === "deleted"){
+          const values = entry?.from || entry?.values || {};
+          body = `Удалено: ${escapeHtml(values.bookedBy || entry?.bookedBy || "—")}, ${escapeHtml(values.date || entry?.date || "—")} в ${escapeHtml(values.time || entry?.time || "—")} (${escapeHtml(bookingTypes[bookingTypeOf({ type: values.type || entry?.type || "break" })].label)})`;
+        } else {
+          const from = entry?.from || {};
+          const to = entry?.to || {};
+          const parts = [];
+          if ((from.bookedBy ?? "") !== (to.bookedBy ?? "")) parts.push(`имя: ${escapeHtml(from.bookedBy || "—")} → ${escapeHtml(to.bookedBy || "—")}`);
+          if ((from.date ?? "") !== (to.date ?? "")) parts.push(`дата: ${escapeHtml(from.date || "—")} → ${escapeHtml(to.date || "—")}`);
+          if ((from.time ?? "") !== (to.time ?? "")) parts.push(`время: ${escapeHtml(from.time || "—")} → ${escapeHtml(to.time || "—")}`);
+          if ((from.type ?? "") !== (to.type ?? "")) parts.push(`тип: ${escapeHtml(bookingTypes[bookingTypeOf({ type: from.type })].label)} → ${escapeHtml(bookingTypes[bookingTypeOf({ type: to.type })].label)}`);
+          body = parts.length ? parts.join("; ") : "Поля сохранены без заметных изменений.";
+        }
+
+        return `
+          <div class="history-item ${action}">
+            <div class="history-meta">
+              <strong>${title}</strong>
+              <small>${escapeHtml(at)}</small>
+            </div>
+            <div class="history-body">${body}</div>
+            <div class="history-diff">${escapeHtml(author)}</div>
+          </div>
+        `;
+      }).join("");
     }
 
     function setStatus(ok){
@@ -1049,6 +1196,7 @@
       editDateEl.value = booking.date || selectedDate;
       renderEditTimeOptions(editDateEl.value, booking.id, booking.time, bookingTypeOf(booking));
       editTimeEl.value = booking.time;
+      renderEditHistory(booking);
       editModal.classList.add("open");
       editModal.setAttribute("aria-hidden", "false");
       setTimeout(() => editNameEl.focus(), 0);
@@ -1060,11 +1208,13 @@
       editingBooking = null;
       editForm.reset();
       editTimeEl.innerHTML = "";
+      if (editHistoryList) editHistoryList.innerHTML = "";
     }
 
     async function saveRecord({ sourceId = null, name, date, time, type = selectedType }){
       const newId = slotId(date, time, type);
       const newRef = db.collection(collectionName).doc(newId);
+      const now = new Date().toISOString();
 
       return db.runTransaction(async tx => {
         if (sourceId){
@@ -1082,13 +1232,33 @@
           }
 
           const base = oldSnap.data() || {};
+          const history = Array.isArray(base.history) ? [...base.history] : [];
+          history.push({
+            action: "updated",
+            at: now,
+            by: name,
+            from: {
+              bookedBy: base.bookedBy || "",
+              date: base.date || "",
+              time: base.time || "",
+              type: base.type || "break"
+            },
+            to: {
+              bookedBy: name,
+              date,
+              time,
+              type
+            }
+          });
+
           const data = {
             ...base,
             date,
             time,
             type,
             bookedBy: name,
-            updatedAt: new Date().toISOString()
+            updatedAt: now,
+            history
           };
 
           tx.set(newRef, data, { merge: true });
@@ -1106,7 +1276,19 @@
           time,
           type,
           bookedBy: name,
-          bookedAt: new Date().toISOString()
+          bookedAt: now,
+          updatedAt: now,
+          history: [{
+            action: "created",
+            at: now,
+            by: name,
+            to: {
+              bookedBy: name,
+              date,
+              time,
+              type
+            }
+          }]
         }, { merge: true });
 
         return newId;
@@ -1473,10 +1655,13 @@
         renderBoard();
         if (allModal.classList.contains("open")) renderAllBookings();
         if (editModal.classList.contains("open") && editingBooking){
+          const fresh = bookingById(editingBooking.id);
+          if (fresh) editingBooking = fresh;
           renderEditTimeOptions(editDateEl.value, editingBooking.id, editTimeEl.value, bookingTypeOf(editingBooking));
           if (editTimeEl.querySelector(`option[value="${editTimeEl.value}"]`)?.disabled){
             editTimeEl.value = editingBooking.time;
           }
+          renderEditHistory(editingBooking);
         }
         setStatus(true);
       }, err => {
