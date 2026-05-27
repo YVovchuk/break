@@ -1814,7 +1814,7 @@
         ? escapeHtml(booking.bookedBy || "без имени")
         : available
           ? "Свободно"
-          : escapeHtml(unavailableText || "Недоступно");
+          : escapeHtml(unavailableText || "Недоступно1");
       return `
         <div class="type-row ${booked ? "booked" : available ? "free" : "blocked"} ${type}" ${booked ? `data-booking-id="${escapeHtml(booking.id)}" draggable="true"` : ""} data-type="${type}">
           <div>
