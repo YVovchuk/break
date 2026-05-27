@@ -1313,7 +1313,7 @@
           const preferredSlot = sourceId && bookingTypeOf(base) === "lunch" ? lunchSlotOf(base) : null;
           const lunchSlot = availableLunchSlot(date, time, sourceId, preferredSlot);
           if (!lunchSlot){
-            throw new Error("В этой ячейке уже два обеда.");
+            throw new Error("В этой ячейке уже есть обед и перерыв, второй обед забронировать нельзя.");
           }
 
           const newId = slotId(date, time, type, lunchSlot);
@@ -1366,7 +1366,7 @@
         }
 
         if (!canPlaceBooking(date, time, "break", sourceId)){
-          throw new Error("В этой ячейке уже есть перерыв или два обеда.");
+          throw new Error("В этой ячейке уже есть обед и перерыв или два обеда.");
         }
 
         const newId = slotId(date, time, type);
