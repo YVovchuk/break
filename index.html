@@ -733,6 +733,10 @@
           </div>
 
           <div class="result" id="result">Выберите дату, затем нажмите на свободную ячейку справа.</div>
+<div class="actions" style="margin-top:12px">
+  <button class="button secondary" id="viewLunchesBtn" type="button">Посмотреть все обеды</button>
+</div>
+
         </div>
       </section>
       <section class="panel right">
@@ -1787,6 +1791,113 @@
     init();
 
   </script>
+
+
+<div class="modal" id="lunchesModal" aria-hidden="true">
+  <div class="modal-card" style="width:min(1400px,98%)">
+    <div class="modal-head">
+      <div>
+        <h2>Обеды на сегодня</h2>
+        <p>Excel-представление обедов из календаря</p>
+      </div>
+      <button class="button secondary" id="closeLunchesModalBtn" type="button">Закрыть</button>
+    </div>
+
+    <div style="overflow:auto;border:1px solid #d6dde8;border-radius:18px;background:#f8fafc">
+      <table style="width:100%;border-collapse:collapse;min-width:1200px">
+        <thead id="lunchTableHead"></thead>
+        <tbody id="lunchTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<script>
+const lunchesModal = document.getElementById("lunchesModal");
+const viewLunchesBtn = document.getElementById("viewLunchesBtn");
+const closeLunchesModalBtn = document.getElementById("closeLunchesModalBtn");
+
+function renderLunchExcel(){
+  const body = document.getElementById("lunchTableBody");
+  const head = document.getElementById("lunchTableHead");
+
+  const lunchBookings = bookingsCache
+    .filter(b => b.date === selectedDate && (b.type || "break") === "lunch")
+    .sort((a,b)=>a.time.localeCompare(b.time));
+
+  const times = [
+    "12:00","12:30","13:00","13:30","14:00","14:30",
+    "15:00","15:30","16:00","16:30","17:00","17:30",
+    "18:00","18:30"
+  ];
+
+  head.innerHTML = `
+    <tr style="background:#eef2f7">
+      <th style="padding:14px;border:1px solid #d6dde8;text-align:left;min-width:260px">Сотрудник</th>
+      <th style="padding:14px;border:1px solid #d6dde8;text-align:left;min-width:120px">Время</th>
+      ${times.map(t=>`<th style="padding:10px;border:1px solid #d6dde8;font-size:12px">${t}</th>`).join("")}
+    </tr>
+  `;
+
+  body.innerHTML = lunchBookings.map(b => `
+    <tr>
+      <td style="padding:18px;border:1px solid #d6dde8;background:#f8fafc;font-weight:600">${b.bookedBy || ""}</td>
+      <td style="padding:18px;border:1px solid #d6dde8;background:#f8fafc;font-weight:700">${b.time}</td>
+
+      ${times.map(t => `
+        <td style="height:54px;border:1px solid #d6dde8;background:#fff;text-align:center">
+          ${t === b.time
+            ? `<div style="
+                background:#cfe9d8;
+                color:#14532d;
+                border-radius:0;
+                padding:8px;
+                font-weight:800;
+                font-size:13px;
+                width:100%;
+                height:100%;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                flex-direction:column;
+              ">
+                <div>Обед</div>
+                <div style="font-size:11px;margin-top:4px">${b.time}</div>
+              </div>`
+            : ""
+          }
+        </td>
+      `).join("")}
+    </tr>
+  `).join("");
+
+  if (!lunchBookings.length){
+    body.innerHTML = `
+      <tr>
+        <td colspan="${times.length + 2}" style="padding:40px;text-align:center;color:#64748b">
+          На сегодня обедов нет
+        </td>
+      </tr>
+    `;
+  }
+}
+
+viewLunchesBtn.addEventListener("click", () => {
+  renderLunchExcel();
+  lunchesModal.classList.add("open");
+});
+
+closeLunchesModalBtn.addEventListener("click", () => {
+  lunchesModal.classList.remove("open");
+});
+
+lunchesModal.addEventListener("click", (e) => {
+  if (e.target === lunchesModal){
+    lunchesModal.classList.remove("open");
+  }
+});
+</script>
 
 </body>
 </html>
