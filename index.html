@@ -529,6 +529,62 @@
       border-color:rgba(234,88,12,.14);
     }
 
+
+    .supervisor-trigger{
+      min-width:260px;
+      padding:13px 18px;
+      border-radius:16px;
+      box-shadow:0 14px 28px rgba(79,70,229,.20);
+    }
+    .admin-panel{
+      display:grid;
+      gap:14px;
+    }
+    .admin-status{
+      padding:12px 14px;
+      border-radius:16px;
+      background:rgba(79,70,229,.08);
+      border:1px solid rgba(79,70,229,.14);
+      color:#312e81;
+      font-size:12px;
+      line-height:1.5;
+    }
+    .admin-toggle{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:14px;
+      padding:14px 16px;
+      border:1px solid rgba(17,24,39,.08);
+      border-radius:18px;
+      background:rgba(17,24,39,.03);
+    }
+    .admin-toggle strong{
+      display:block;
+      font-size:13px;
+      margin-bottom:4px;
+    }
+    .admin-toggle span{
+      display:block;
+      font-size:11px;
+      color:var(--muted);
+      line-height:1.45;
+      max-width:560px;
+    }
+    .admin-toggle input{
+      width:20px;
+      height:20px;
+      margin-top:3px;
+      flex:none;
+      accent-color:var(--primary);
+    }
+    .admin-login-note{
+      font-size:11px;
+      color:var(--muted);
+      line-height:1.5;
+      margin-top:-4px;
+    }
+
     @media (max-width: 1200px){
       .layout{grid-template-columns:1fr}
       .slot-grid{grid-template-columns: 96px repeat(12, minmax(52px, 1fr));}
@@ -697,6 +753,7 @@
         </div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button class="button primary supervisor-trigger" id="supervisorBtn" type="button">Функционал старшего смены</button>
       </div>
     </div>
 
@@ -822,7 +879,56 @@
   </div>
 
   
-  <script>
+  
+  <div class="modal" id="supervisorModal" aria-hidden="true">
+    <div class="modal-card narrow">
+      <div class="modal-head">
+        <div>
+          <h2>Функционал старшего смены</h2>
+          <p>Доступ по паролю 2486456. После входа доступны ограничения для обедов и редактирования.</p>
+        </div>
+        <button class="button secondary" id="closeSupervisorModalBtn" type="button">Закрыть</button>
+      </div>
+
+      <div id="supervisorLoginView">
+        <form class="stack" id="supervisorPasswordForm" style="gap:12px">
+          <div class="field">
+            <label for="supervisorPasswordInput">Пароль</label>
+            <input id="supervisorPasswordInput" type="password" placeholder="Введите пароль" autocomplete="current-password" />
+          </div>
+          <div class="admin-login-note" id="supervisorError"></div>
+          <button class="button primary" type="submit">Войти</button>
+        </form>
+      </div>
+
+      <div id="supervisorPanelView" class="hidden">
+        <div class="admin-panel">
+          <div class="admin-status" id="supervisorStatusText"></div>
+
+          <label class="admin-toggle">
+            <div>
+              <strong>Разрешить два обеда в одном слоте</strong>
+              <span>Если выключить, в один слот можно оставить только один обед.</span>
+            </div>
+            <input type="checkbox" id="allowTwoLunchesToggle" />
+          </label>
+
+          <label class="admin-toggle">
+            <div>
+              <strong>Запретить смену имени, времени и удаление</strong>
+              <span>Блокирует редактирование и удаление уже созданных обедов и перерывов.</span>
+            </div>
+            <input type="checkbox" id="lockEditsToggle" />
+          </label>
+
+          <div class="admin-login-note">Настройки применяются сразу и сохраняются в браузере.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+<script>
 
     const firebaseConfig = {
       apiKey: "AIzaSyAoTaDDCB-TUZzSlRuUKvnQ8QcJPQdERFE",
@@ -861,6 +967,18 @@
     const allBookingsBody = document.getElementById("allBookingsBody");
     const closeAllModalBtn = document.getElementById("closeAllModalBtn");
 
+    const supervisorBtn = document.getElementById("supervisorBtn");
+    const supervisorModal = document.getElementById("supervisorModal");
+    const closeSupervisorModalBtn = document.getElementById("closeSupervisorModalBtn");
+    const supervisorLoginView = document.getElementById("supervisorLoginView");
+    const supervisorPanelView = document.getElementById("supervisorPanelView");
+    const supervisorPasswordForm = document.getElementById("supervisorPasswordForm");
+    const supervisorPasswordInput = document.getElementById("supervisorPasswordInput");
+    const supervisorError = document.getElementById("supervisorError");
+    const supervisorStatusText = document.getElementById("supervisorStatusText");
+    const allowTwoLunchesToggle = document.getElementById("allowTwoLunchesToggle");
+    const lockEditsToggle = document.getElementById("lockEditsToggle");
+
     const editModal = document.getElementById("editModal");
     const editForm = document.getElementById("editForm");
     const editBookingId = document.getElementById("editBookingId");
@@ -886,6 +1004,16 @@
     let editingBooking = null;
     let dragBookingId = null;
     let dragSession = null;
+
+    const SENIOR_PASSWORD = "2486456";
+    const SENIOR_STORAGE_KEY = "supervisor_shift_settings_v1";
+    const SENIOR_DEFAULTS = {
+      allowTwoLunches: true,
+      lockEdits: false
+    };
+
+    let seniorUnlocked = false;
+    let seniorSettings = loadSeniorSettings();
 
     function todayISO(){
       const d = new Date();
@@ -978,6 +1106,97 @@
           </div>
         `;
       }).join("");
+    }
+
+
+    function loadSeniorSettings(){
+      try{
+        const raw = localStorage.getItem(SENIOR_STORAGE_KEY);
+        if (!raw) return { ...SENIOR_DEFAULTS };
+        return { ...SENIOR_DEFAULTS, ...JSON.parse(raw) };
+      } catch (_) {
+        return { ...SENIOR_DEFAULTS };
+      }
+    }
+
+    function saveSeniorSettings(){
+      try{
+        localStorage.setItem(SENIOR_STORAGE_KEY, JSON.stringify(seniorSettings));
+      } catch (_) {}
+    }
+
+    function isSupervisorEditLocked(){
+      return !!seniorSettings.lockEdits;
+    }
+
+    function applySupervisorRestrictions(){
+      const locked = isSupervisorEditLocked();
+
+      if (editNameEl) editNameEl.disabled = locked;
+      if (editDateEl) editDateEl.disabled = locked;
+      if (editTimeEl) editTimeEl.disabled = locked;
+      if (deleteEditBtn) deleteEditBtn.disabled = locked;
+      if (editForm) {
+        const submitBtn = editForm.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = locked;
+      }
+
+      if (supervisorStatusText){
+        supervisorStatusText.textContent =
+          `Два обеда в одном слоте: ${seniorSettings.allowTwoLunches ? "разрешены" : "запрещены"}. ` +
+          `Редактирование и удаление: ${locked ? "заблокированы" : "разрешены"}.`;
+      }
+
+      if (allowTwoLunchesToggle) allowTwoLunchesToggle.checked = !!seniorSettings.allowTwoLunches;
+      if (lockEditsToggle) lockEditsToggle.checked = !!seniorSettings.lockEdits;
+    }
+
+    function openSupervisorModal(){
+      if (!supervisorModal) return;
+      supervisorModal.classList.add("open");
+      supervisorModal.setAttribute("aria-hidden", "false");
+
+      if (seniorUnlocked){
+        if (supervisorLoginView) supervisorLoginView.classList.add("hidden");
+        if (supervisorPanelView) supervisorPanelView.classList.remove("hidden");
+        applySupervisorRestrictions();
+      } else {
+        if (supervisorLoginView) supervisorLoginView.classList.remove("hidden");
+        if (supervisorPanelView) supervisorPanelView.classList.add("hidden");
+        if (supervisorError) supervisorError.textContent = "";
+        if (supervisorPasswordInput) supervisorPasswordInput.value = "";
+        setTimeout(() => supervisorPasswordInput && supervisorPasswordInput.focus(), 0);
+      }
+    }
+
+    function closeSupervisorModal(){
+      if (!supervisorModal) return;
+      supervisorModal.classList.remove("open");
+      supervisorModal.setAttribute("aria-hidden", "true");
+      if (supervisorError) supervisorError.textContent = "";
+      if (supervisorPasswordInput) supervisorPasswordInput.value = "";
+    }
+
+    function unlockSupervisorPanel(){
+      seniorUnlocked = true;
+      if (supervisorLoginView) supervisorLoginView.classList.add("hidden");
+      if (supervisorPanelView) supervisorPanelView.classList.remove("hidden");
+      applySupervisorRestrictions();
+    }
+
+    function syncSupervisorSettingsFromUi(){
+      seniorSettings = {
+        allowTwoLunches: !!allowTwoLunchesToggle?.checked,
+        lockEdits: !!lockEditsToggle?.checked
+      };
+      saveSeniorSettings();
+      applySupervisorRestrictions();
+      renderBoard();
+      if (allModal && allModal.classList.contains("open")) renderAllBookings();
+      if (editModal && editModal.classList.contains("open") && editingBooking){
+        renderEditTimeOptions(editDateEl.value, editingBooking.id, editTimeEl.value, bookingTypeOf(editingBooking));
+        renderEditHistory(editingBooking);
+      }
     }
 
     function setStatus(ok){
@@ -1078,6 +1297,7 @@
       const brk = breakAt(date, time, excludeId);
 
       if (type === "lunch"){
+        if (!seniorSettings.allowTwoLunches && lunches.length >= 1) return false;
         if (lunches.length >= 2) return false;
         if (brk && lunches.length >= 1) return false;
         return true;
@@ -1095,9 +1315,13 @@
         return null;
       }
 
+      if (!seniorSettings.allowTwoLunches && occupied.size >= 1){
+        return null;
+      }
+
       if (preferredSlot && !occupied.has(preferredSlot)) return preferredSlot;
       if (!occupied.has(1)) return 1;
-      if (!occupied.has(2)) return 2;
+      if (seniorSettings.allowTwoLunches && !occupied.has(2)) return 2;
       return null;
     }
 
@@ -1127,6 +1351,8 @@
     }
 
     function bindDragEvents(row, booking){
+      if (isSupervisorEditLocked()) return;
+
       const html5Start = (e) => {
         if (e.target && e.target.closest && e.target.closest(".icon-btn")) return;
         if (!e.dataTransfer) return;
@@ -1283,9 +1509,12 @@
       renderEditTimeOptions(editDateEl.value, booking.id, booking.time, bookingTypeOf(booking));
       editTimeEl.value = booking.time;
       renderEditHistory(booking);
+      applySupervisorRestrictions();
       editModal.classList.add("open");
       editModal.setAttribute("aria-hidden", "false");
-      setTimeout(() => editNameEl.focus(), 0);
+      if (!isSupervisorEditLocked()){
+        setTimeout(() => editNameEl.focus(), 0);
+      }
     }
 
     function closeEditModal(){
@@ -1295,6 +1524,7 @@
       editForm.reset();
       editTimeEl.innerHTML = "";
       if (editHistoryList) editHistoryList.innerHTML = "";
+      applySupervisorRestrictions();
     }
 
     async function saveRecord({ sourceId = null, name, date, time, type = selectedType }){
@@ -1307,6 +1537,10 @@
 
         if (sourceId && !oldSnap?.exists){
           throw new Error("Запись не найдена.");
+        }
+
+        if (sourceId && isSupervisorEditLocked()){
+          throw new Error("Редактирование и перенос заблокированы функционалом старшего смены.");
         }
 
         if (type === "lunch"){
@@ -1446,6 +1680,11 @@
       e.preventDefault();
       if (!editingBooking) return;
 
+      if (isSupervisorEditLocked()){
+        setResult("Редактирование заблокировано функционалом старшего смены.", true);
+        return;
+      }
+
       const name = editNameEl.value.trim();
       const date = editDateEl.value;
       const time = editTimeEl.value;
@@ -1491,6 +1730,10 @@
     async function deleteBookingById(bookingId){
       const booking = bookingById(bookingId);
       if (!booking) return;
+
+      if (isSupervisorEditLocked()){
+        throw new Error("Удаление заблокировано функционалом старшего смены.");
+      }
 
       await db.collection(collectionName).doc(booking.id).delete();
       if (editingBooking && editingBooking.id === booking.id){
@@ -1564,6 +1807,7 @@
 
     function typeRowHtml(type, booking, index = null, available = true, unavailableText = "") {
       const booked = !!booking;
+      const locked = isSupervisorEditLocked();
       const title = type === "lunch" ? `Обед ${index || ""}`.trim() : bookingTypes[type].label;
       const statusText = booked ? "Занято" : available ? "Свободно" : "Недоступно";
       const subtitle = booked
@@ -1579,7 +1823,9 @@
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex:none">
             <small>${statusText}</small>
-            ${booked ? '<button class="drag-handle" type="button" title="Перетащить">⠿</button><button class="icon-btn" type="button" title="Редактировать" aria-label="Редактировать">✎</button>' : ""}
+            ${booked ? (locked
+              ? '<small style="color:var(--muted)">Редактирование выключено</small>'
+              : '<button class="drag-handle" type="button" title="Перетащить">⠿</button><button class="icon-btn" type="button" title="Редактировать" aria-label="Редактировать">✎</button>') : ""}
           </div>
         </div>
       `;
@@ -1764,7 +2010,9 @@
                 <td>${escapeHtml(r.time || "")}</td>
                 <td>${escapeHtml(bookingLabel(r))}</td>
                 <td class="actions-cell">
-                  <button class="button ghost" type="button" data-edit-id="${escapeHtml(r.id)}">✎</button>
+                  ${isSupervisorEditLocked()
+                    ? '<span style="font-size:11px;color:var(--muted)">Редактирование выключено</span>'
+                    : `<button class="button ghost" type="button" data-edit-id="${escapeHtml(r.id)}">✎</button>`}
                 </td>
               </tr>
             `).join("")}
@@ -1810,6 +2058,7 @@
             editTimeEl.value = editingBooking.time;
           }
           renderEditHistory(editingBooking);
+          applySupervisorRestrictions();
         }
         setStatus(true);
       }, err => {
@@ -1817,6 +2066,33 @@
         setStatus(false);
       });
     }
+
+    if (supervisorBtn) supervisorBtn.addEventListener("click", openSupervisorModal);
+    if (closeSupervisorModalBtn) closeSupervisorModalBtn.addEventListener("click", closeSupervisorModal);
+    if (supervisorModal) supervisorModal.addEventListener("click", e => { if (e.target === supervisorModal) closeSupervisorModal(); });
+
+    if (supervisorPasswordForm){
+      supervisorPasswordForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const entered = (supervisorPasswordInput?.value || "").trim();
+        if (entered === SENIOR_PASSWORD){
+          if (supervisorError) supervisorError.textContent = "";
+          unlockSupervisorPanel();
+        } else {
+          if (supervisorError) supervisorError.textContent = "Неверный пароль.";
+          if (supervisorPasswordInput){
+            supervisorPasswordInput.focus();
+            supervisorPasswordInput.select();
+          }
+        }
+      });
+    }
+
+    if (allowTwoLunchesToggle) allowTwoLunchesToggle.addEventListener("change", syncSupervisorSettingsFromUi);
+    if (lockEditsToggle) lockEditsToggle.addEventListener("change", syncSupervisorSettingsFromUi);
+
+    applySupervisorRestrictions();
+
     prevMonthBtn.addEventListener("click", () => setMonth(-1));
     nextMonthBtn.addEventListener("click", () => setMonth(1));
     bookBtn.addEventListener("click", createBooking);
@@ -1935,6 +2211,7 @@
       renderCalendar();
       selectedDateLabel.textContent = selectedDate;
       setSelectedType(selectedType);
+      applySupervisorRestrictions();
       subscribe();
     }
 
