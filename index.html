@@ -457,11 +457,13 @@
       cursor:pointer;
     }
     .type-row.blocked{
-      background:rgba(148,163,184,.12);
-      border-color:rgba(148,163,184,.18);
-      color:#64748b;
+      background:rgba(220,38,38,.08);
+      border-color:rgba(220,38,38,.18);
+      color:#991b1b;
       cursor:not-allowed;
     }
+    .type-row.blocked strong{color:var(--danger)}
+    .type-row.blocked small{color:#991b1b}
     .type-row.booked.break{
       background:rgba(79,70,229,.10);
       border-color:rgba(79,70,229,.16);
@@ -1311,7 +1313,7 @@
           const preferredSlot = sourceId && bookingTypeOf(base) === "lunch" ? lunchSlotOf(base) : null;
           const lunchSlot = availableLunchSlot(date, time, sourceId, preferredSlot);
           if (!lunchSlot){
-            throw new Error("В этой ячейке уже есть обед и перерыв, второй обед забронировать нельзя.");
+            throw new Error("В этой ячейке уже два обеда.");
           }
 
           const newId = slotId(date, time, type, lunchSlot);
@@ -1560,15 +1562,20 @@
       }
     }
 
-    function typeRowHtml(type, booking, index = null, available = true){
+    function typeRowHtml(type, booking, index = null, available = true, unavailableText = "") {
       const booked = !!booking;
       const title = type === "lunch" ? `Обед ${index || ""}`.trim() : bookingTypes[type].label;
       const statusText = booked ? "Занято" : available ? "Свободно" : "Недоступно";
+      const subtitle = booked
+        ? escapeHtml(booking.bookedBy || "без имени")
+        : available
+          ? "Свободно"
+          : escapeHtml(unavailableText || "Недоступно");
       return `
         <div class="type-row ${booked ? "booked" : available ? "free" : "blocked"} ${type}" ${booked ? `data-booking-id="${escapeHtml(booking.id)}" draggable="true"` : ""} data-type="${type}">
           <div>
             <strong>${title}</strong>
-            <small>${booked ? escapeHtml(booking.bookedBy || "без имени") : available ? "Свободно" : "Недоступно из-за 2 обедов"}</small>
+            <small>${subtitle}</small>
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex:none">
             <small>${statusText}</small>
@@ -1608,7 +1615,18 @@
         rowTimes.forEach(time => {
           const lunchBookings = dayBookings.get(time)?.lunch || [];
           const brk = dayBookings.get(time)?.break || null;
+          const lunchAllowed = canPlaceBooking(selectedDate, time, "lunch");
           const breakAllowed = canPlaceBooking(selectedDate, time, "break");
+          const lunchUnavailableText = lunchBookings.length >= 2
+            ? "Недоступно из-за 2 обедов"
+            : brk && lunchBookings.length >= 1
+              ? "Недоступно из-за перерыва"
+              : "Недоступно";
+          const breakUnavailableText = lunchBookings.length >= 2
+            ? "Недоступно из-за 2 обедов"
+            : brk
+              ? "Недоступно из-за перерыва"
+              : "Недоступно";
 
           const slot = document.createElement("div");
           slot.className = "slot";
@@ -1624,9 +1642,9 @@
               <small>${bookingTypes[selectedType].label}</small>
             </div>
             <div class="slot-types">
-              ${typeRowHtml("lunch", lunchBookings[0] || null, 1, true)}
-              ${typeRowHtml("lunch", lunchBookings[1] || null, 2, true)}
-              ${typeRowHtml("break", brk, null, breakAllowed)}
+              ${typeRowHtml("lunch", lunchBookings[0] || null, 1, lunchAllowed, lunchUnavailableText)}
+              ${typeRowHtml("lunch", lunchBookings[1] || null, 2, lunchAllowed, lunchUnavailableText)}
+              ${typeRowHtml("break", brk, null, breakAllowed, breakUnavailableText)}
             </div>
           `;
 
