@@ -929,7 +929,7 @@
             <input type="checkbox" id="lockEditsToggle" />
           </label>
 
-          <div class="admin-login-note">Настройки применяются сразу и сохраняются в браузере.</div>
+          <div class="admin-login-note">Настройки применяются сразу и синхронизируются для всех пользователей.</div>
         </div>
       </div>
     </div>
@@ -948,6 +948,7 @@
     const db = firebase.firestore();
 
     const collectionName = "break_bookings";
+    const seniorSettingsDocRef = db.collection("app_settings").doc("supervisor_shift_settings");
     const startHour = 8;
     const endHour = 22;
     const stepMinutes = 15;
@@ -1015,7 +1016,6 @@
     let dragSession = null;
 
     const SENIOR_PASSWORD = "2486456";
-    const SENIOR_STORAGE_KEY = "supervisor_shift_settings_v1";
     const SENIOR_DEFAULTS = {
       allowTwoLunches: true,
       blockMixedTypes: true,
@@ -1023,7 +1023,8 @@
     };
 
     let seniorUnlocked = false;
-    let seniorSettings = loadSeniorSettings();
+    let seniorSettings = { ...SENIOR_DEFAULTS };
+    let seniorSettingsUnsub = null;
 
     function todayISO(){
       const d = new Date();
@@ -1119,20 +1120,47 @@
     }
 
 
-    function loadSeniorSettings(){
+    function normalizeSeniorSettings(data = {}){
+      return {
+        allowTwoLunches: data.allowTwoLunches === undefined ? SENIOR_DEFAULTS.allowTwoLunches : !!data.allowTwoLunches,
+        blockMixedTypes: data.blockMixedTypes === undefined ? SENIOR_DEFAULTS.blockMixedTypes : !!data.blockMixedTypes,
+        lockEdits: data.lockEdits === undefined ? SENIOR_DEFAULTS.lockEdits : !!data.lockEdits
+      };
+    }
+
+    async function saveSeniorSettings(){
       try{
-        const raw = localStorage.getItem(SENIOR_STORAGE_KEY);
-        if (!raw) return { ...SENIOR_DEFAULTS };
-        return { ...SENIOR_DEFAULTS, ...JSON.parse(raw) };
-      } catch (_) {
-        return { ...SENIOR_DEFAULTS };
+        await seniorSettingsDocRef.set(seniorSettings, { merge: true });
+      } catch (err) {
+        console.error("Не удалось сохранить общие настройки:", err);
       }
     }
 
-    function saveSeniorSettings(){
-      try{
-        localStorage.setItem(SENIOR_STORAGE_KEY, JSON.stringify(seniorSettings));
-      } catch (_) {}
+    function subscribeSeniorSettings(){
+      if (seniorSettingsUnsub) seniorSettingsUnsub();
+
+      seniorSettingsUnsub = seniorSettingsDocRef.onSnapshot(async snap => {
+        if (snap.exists){
+          seniorSettings = normalizeSeniorSettings(snap.data() || {});
+        } else {
+          seniorSettings = { ...SENIOR_DEFAULTS };
+          try{
+            await seniorSettingsDocRef.set(seniorSettings, { merge: true });
+          } catch (err) {
+            console.error("Не удалось создать документ общих настроек:", err);
+          }
+        }
+
+        applySupervisorRestrictions();
+        renderBoard();
+        if (allModal && allModal.classList.contains("open")) renderAllBookings();
+        if (editModal && editModal.classList.contains("open") && editingBooking){
+          renderEditTimeOptions(editDateEl.value, editingBooking.id, editTimeEl.value, bookingTypeOf(editingBooking));
+          renderEditHistory(editingBooking);
+        }
+      }, err => {
+        console.error("Ошибка подписки на общие настройки:", err);
+      });
     }
 
     function isSupervisorEditLocked(){
@@ -1156,6 +1184,8 @@
           `Два обеда в одном слоте: ${seniorSettings.allowTwoLunches ? "разрешены" : "запрещены"}. ` +
           `Обед и перерыв в одном слоте: ${seniorSettings.blockMixedTypes ? "запрещены" : "разрешены"}. ` +
           `Редактирование и удаление: ${locked ? "заблокированы" : "разрешены"}.`;
+        
+
       }
 
       if (allowTwoLunchesToggle) allowTwoLunchesToggle.checked = !!seniorSettings.allowTwoLunches;
@@ -1197,12 +1227,11 @@
     }
 
     function syncSupervisorSettingsFromUi(){
-      seniorSettings = {
+      seniorSettings = normalizeSeniorSettings({
         allowTwoLunches: !!allowTwoLunchesToggle?.checked,
         blockMixedTypes: !!mixedTypesToggle?.checked,
         lockEdits: !!lockEditsToggle?.checked
-      };
-      saveSeniorSettings();
+      });
       applySupervisorRestrictions();
       renderBoard();
       if (allModal && allModal.classList.contains("open")) renderAllBookings();
@@ -1210,6 +1239,7 @@
         renderEditTimeOptions(editDateEl.value, editingBooking.id, editTimeEl.value, bookingTypeOf(editingBooking));
         renderEditHistory(editingBooking);
       }
+      saveSeniorSettings();
     }
 
     function setStatus(ok){
@@ -2236,6 +2266,7 @@
       selectedDateLabel.textContent = selectedDate;
       setSelectedType(selectedType);
       applySupervisorRestrictions();
+      subscribeSeniorSettings();
       subscribe();
     }
 
