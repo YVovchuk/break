@@ -189,6 +189,10 @@
       font-weight:700;
       cursor:pointer;
       transition:.18s ease;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      text-decoration:none;
     }
     .button:hover{transform:translateY(-1px)}
     .button.primary{
@@ -754,6 +758,7 @@
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
         <button class="button primary supervisor-trigger" id="supervisorBtn" type="button">Функционал старшего смены</button>
+        <a class="button ghost supervisor-trigger" href="https://time.rolf.ru/rolftech/messages/@yury" target="_blank" rel="noopener noreferrer">Поддержка</a>
       </div>
     </div>
 
@@ -1342,6 +1347,7 @@
 
       if (type === "lunch"){
         if (hasMixedConflict) return false;
+        if (brk && lunches.length >= 1) return false;
         if (!seniorSettings.allowTwoLunches && lunches.length >= 1) return false;
         if (lunches.length >= 2) return false;
         return true;
@@ -1357,6 +1363,10 @@
       const brk = breakAt(date, time, excludeId);
 
       if (seniorSettings.blockMixedTypes && brk){
+        return null;
+      }
+
+      if (brk && occupied.size >= 1){
         return null;
       }
 
@@ -1596,9 +1606,15 @@
           const preferredSlot = sourceId && bookingTypeOf(base) === "lunch" ? lunchSlotOf(base) : null;
           const lunchSlot = availableLunchSlot(date, time, sourceId, preferredSlot);
           if (!lunchSlot){
-            throw new Error(seniorSettings.blockMixedTypes && breakAt(date, time, sourceId)
-              ? "На это время уже есть перерыв. Обед в этот слот запрещён."
-              : "На это время уже есть обед. Второй обед забронировать нельзя.");
+            const brk = breakAt(date, time, sourceId);
+            const lunchCount = lunchesAt(date, time, sourceId).length;
+            throw new Error(
+              seniorSettings.blockMixedTypes && brk
+                ? "На это время уже есть перерыв. Обед в этот слот запрещён."
+                : (brk && lunchCount >= 1)
+                  ? "В этом слоте уже есть перерыв и обед. Второй обед добавить нельзя."
+                  : "На это время уже есть обед. Второй обед забронировать нельзя."
+            );
           }
 
           const newId = slotId(date, time, type, lunchSlot);
@@ -1918,9 +1934,11 @@
           const breakAllowed = canPlaceBooking(selectedDate, time, "break");
           const lunchUnavailableText = lunchBookings.length >= 2
             ? "Есть два обеда"
-            : (brk && seniorSettings.blockMixedTypes)
-              ? "Есть перерыв"
-              : "Недоступно";
+            : (brk && lunchBookings.length >= 1)
+              ? "Есть перерыв и обед"
+              : (brk && seniorSettings.blockMixedTypes)
+                ? "Есть перерыв"
+                : "Недоступно";
           const breakUnavailableText = lunchBookings.length >= 2
             ? "Есть два обеда"
             : (lunchBookings.length >= 1 && seniorSettings.blockMixedTypes)
