@@ -915,6 +915,14 @@
 
           <label class="admin-toggle">
             <div>
+              <strong>Запретить обед и перерыв в одном слоте</strong>
+              <span>Если включить, в один слот можно поставить только один тип: либо обед, либо перерыв.</span>
+            </div>
+            <input type="checkbox" id="mixedTypesToggle" />
+          </label>
+
+          <label class="admin-toggle">
+            <div>
               <strong>Запретить смену имени, времени и удаление</strong>
               <span>Блокирует редактирование и удаление уже созданных обедов и перерывов.</span>
             </div>
@@ -977,6 +985,7 @@
     const supervisorError = document.getElementById("supervisorError");
     const supervisorStatusText = document.getElementById("supervisorStatusText");
     const allowTwoLunchesToggle = document.getElementById("allowTwoLunchesToggle");
+    const mixedTypesToggle = document.getElementById("mixedTypesToggle");
     const lockEditsToggle = document.getElementById("lockEditsToggle");
 
     const editModal = document.getElementById("editModal");
@@ -1009,6 +1018,7 @@
     const SENIOR_STORAGE_KEY = "supervisor_shift_settings_v1";
     const SENIOR_DEFAULTS = {
       allowTwoLunches: true,
+      blockMixedTypes: true,
       lockEdits: false
     };
 
@@ -1144,10 +1154,12 @@
       if (supervisorStatusText){
         supervisorStatusText.textContent =
           `Два обеда в одном слоте: ${seniorSettings.allowTwoLunches ? "разрешены" : "запрещены"}. ` +
+          `Обед и перерыв в одном слоте: ${seniorSettings.blockMixedTypes ? "запрещены" : "разрешены"}. ` +
           `Редактирование и удаление: ${locked ? "заблокированы" : "разрешены"}.`;
       }
 
       if (allowTwoLunchesToggle) allowTwoLunchesToggle.checked = !!seniorSettings.allowTwoLunches;
+      if (mixedTypesToggle) mixedTypesToggle.checked = !!seniorSettings.blockMixedTypes;
       if (lockEditsToggle) lockEditsToggle.checked = !!seniorSettings.lockEdits;
     }
 
@@ -1187,6 +1199,7 @@
     function syncSupervisorSettingsFromUi(){
       seniorSettings = {
         allowTwoLunches: !!allowTwoLunchesToggle?.checked,
+        blockMixedTypes: !!mixedTypesToggle?.checked,
         lockEdits: !!lockEditsToggle?.checked
       };
       saveSeniorSettings();
@@ -1295,14 +1308,16 @@
     function canPlaceBooking(date, time, type, excludeId = null){
       const lunches = lunchesAt(date, time, excludeId);
       const brk = breakAt(date, time, excludeId);
+      const hasMixedConflict = seniorSettings.blockMixedTypes && ((type === "lunch" && !!brk) || (type === "break" && lunches.length > 0));
 
       if (type === "lunch"){
+        if (hasMixedConflict) return false;
         if (!seniorSettings.allowTwoLunches && lunches.length >= 1) return false;
         if (lunches.length >= 2) return false;
-        if (brk && lunches.length >= 1) return false;
         return true;
       }
 
+      if (hasMixedConflict) return false;
       return !brk && lunches.length < 2;
     }
 
@@ -1311,11 +1326,15 @@
       const occupied = new Set(lunches.map(b => lunchSlotOf(b) || 1));
       const brk = breakAt(date, time, excludeId);
 
-      if (brk && lunches.length >= 1){
+      if (seniorSettings.blockMixedTypes && brk){
         return null;
       }
 
       if (!seniorSettings.allowTwoLunches && occupied.size >= 1){
+        return null;
+      }
+
+      if (occupied.size >= 2){
         return null;
       }
 
@@ -1547,7 +1566,9 @@
           const preferredSlot = sourceId && bookingTypeOf(base) === "lunch" ? lunchSlotOf(base) : null;
           const lunchSlot = availableLunchSlot(date, time, sourceId, preferredSlot);
           if (!lunchSlot){
-            throw new Error("На это время уже есть обед и перерыв, второй обед забронировать нельзя.");
+            throw new Error(seniorSettings.blockMixedTypes && breakAt(date, time, sourceId)
+              ? "На это время уже есть перерыв. Обед в этот слот запрещён."
+              : "На это время уже есть обед. Второй обед забронировать нельзя.");
           }
 
           const newId = slotId(date, time, type, lunchSlot);
@@ -1600,7 +1621,9 @@
         }
 
         if (!canPlaceBooking(date, time, "break", sourceId)){
-          throw new Error("На это время уже есть перерыв или два обеда. Перерыв забронировать нельзя.");
+          throw new Error(seniorSettings.blockMixedTypes && lunchesAt(date, time, sourceId).length > 0
+            ? "На это время уже есть обед. Перерыв в этот слот запрещён."
+            : "На это время уже есть перерыв или два обеда. Перерыв забронировать нельзя.");
         }
 
         const newId = slotId(date, time, type);
@@ -1865,13 +1888,13 @@
           const breakAllowed = canPlaceBooking(selectedDate, time, "break");
           const lunchUnavailableText = lunchBookings.length >= 2
             ? "Есть два обеда"
-            : brk && lunchBookings.length >= 1
-              ? "Есть обед и перерыв"
+            : (brk && seniorSettings.blockMixedTypes)
+              ? "Есть перерыв"
               : "Недоступно";
           const breakUnavailableText = lunchBookings.length >= 2
             ? "Есть два обеда"
-            : brk
-              ? "Есть обед и перерыв"
+            : (lunchBookings.length >= 1 && seniorSettings.blockMixedTypes)
+              ? "Есть обед"
               : "Недоступно";
 
           const slot = document.createElement("div");
@@ -2089,6 +2112,7 @@
     }
 
     if (allowTwoLunchesToggle) allowTwoLunchesToggle.addEventListener("change", syncSupervisorSettingsFromUi);
+    if (mixedTypesToggle) mixedTypesToggle.addEventListener("change", syncSupervisorSettingsFromUi);
     if (lockEditsToggle) lockEditsToggle.addEventListener("change", syncSupervisorSettingsFromUi);
 
     applySupervisorRestrictions();
